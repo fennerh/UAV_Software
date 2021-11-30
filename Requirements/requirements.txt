@@ -1,0 +1,6 @@
+numpy==1.15.4
+ExifRead==2.1.2
+tifffile==0.15.1
+fiona==1.8.4
+pandas==0.24.1
+rasterio==1.0.18
