@@ -77,22 +77,22 @@ Norm_Font=("Verdana",10)
 Small_font=("Verdana",8)
 
 ## Define text files for saving locations of shapefiles##
-fieldfile=open(resource_path('fieldshapefile.txt'),'r+')
+fieldfile=open(resource_path('Requirements\\fieldshapefile.txt'),'r+')
 fieldshape=fieldfile.read()
-file=open(resource_path('plotshapefiles.txt'),'r+')
+file=open(resource_path('Requirements\\plotshapefiles.txt'),'r+')
 shapefolder=file.read()
-groundfile=open(resource_path('groundDEM.txt'),'r+')
+groundfile=open(resource_path('Requirements\\groundDEM.txt'),'r+')
 grnddem=groundfile.read()
 
 ##Define Graphics file locations##
-info_button = resource_path('button_info.png')
-home_button = resource_path('button_home.png')
-exit_button = resource_path('button_exit.png')
-back_button = resource_path('button_back.png')
-sony_button = resource_path('button_camera.png')
-geojson_button = resource_path('button_shapefile.png')
-spectrum_button = resource_path('button_spectrum.png')
-shrug = resource_path('whatever-shrug.gif')
+info_button = resource_path('Graphics\\button_info.png')
+home_button = resource_path('Graphics\\button_home.png')
+exit_button = resource_path('Graphics\\button_exit.png')
+back_button = resource_path('Graphics\\button_back.png')
+sony_button = resource_path('Graphics\\button_camera.png')
+geojson_button = resource_path('Graphics\\button_shapefile.png')
+spectrum_button = resource_path('Graphics\\button_spectrum.png')
+shrug = resource_path('Graphics\\whatever-shrug.gif')
 # running = resource_path('processing.gif')
 
 class ImageLabel(tk.Label):
