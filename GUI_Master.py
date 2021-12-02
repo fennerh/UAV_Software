@@ -810,7 +810,7 @@ class HyperSpecExtractor(ttk.Frame):
         hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
         ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
 
-        self.label=tk.Label(self.topframe,text='Shapefile to GeoJSON',font=Large_Font)
+        self.label=tk.Label(self.topframe,text='Hyperspectral Data Extractor',font=Large_Font)
         self.label.grid(row=0,column=2,padx=10)
         
         self.label=tk.Label(self.topframe,text='Extract mean spectra from hyperspectral data and plot polygons.\n \n Hover over inputs/outputs for more info.',font=Norm_Font)

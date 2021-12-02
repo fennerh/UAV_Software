@@ -41,7 +41,8 @@ def overlaps_flightline(flightline, shapefiles):
         return round(area_covered)
 
     with rasterio.open(flightline) as img_rstr:
-        bnd_rstr = img_rstr.read(69)
+        bnd_rstr = img_rstr.read(int(img_rstr.count/2))
+        rstr_crs = img_rstr.crs
         
     bnd_rstr[bnd_rstr>0]=1
     shapes = list(rasterio.features.shapes(bnd_rstr, transform=img_rstr.transform))    
@@ -50,6 +51,7 @@ def overlaps_flightline(flightline, shapefiles):
     multipolygon = MultiPolygon(polygons)
     
     pandaPlots = geopandas.read_file(shapefiles)
+    pandaPlots.to_crs(rstr_crs, inplace=True)
  
     plot, area = [],[]
     for a in pandaPlots.plot_id:
@@ -103,7 +105,7 @@ def extract_hyperspec(datafile, shapefiles):
             window = img_rstr.window(*plots[plots['plot_id']==shp].bounds.iloc[0])
             shapes = ((geom,value) for geom, value in zip(plots[plots['plot_id']==shp].geometry, plots[plots['plot_id']==shp].plot_id))
 
-            rows,cols = img_rstr.read(5, window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform),boundless=True).shape
+            rows,cols = img_rstr.read(int(img_rstr.count/2), window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform),boundless=True).shape
             result = rasterize(shapes=shapes,out_shape=(rows,cols),transform=img_rstr.window_transform(window))
             result_3d = np.repeat(result[np.newaxis,...],(img_rstr.count),0)        
             array = img_rstr.read(window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform))
@@ -112,20 +114,19 @@ def extract_hyperspec(datafile, shapefiles):
             df_mean.loc[bands,shp] = ary.mean(axis=(1,2))
             
             df_meta.loc[shp,'Area'] = plots[plots['plot_id']==shp].Area.iloc[0]
-            df_meta.loc[shp,'FlightLine'] = os.path.basename(datafile)
+            df_meta.loc[shp,'SourceFile'] = os.path.basename(datafile)
             
             df_std.loc[bands,shp] = ary.std(axis=(1,2))
             
-    df_mean = df_mean.T
-    
-    df_mean.rename(columns=lambda x: x[:-3]+'_mean',inplace=True)
+    df_mean = df_mean.T    
+    df_mean.rename(columns=lambda x: x.split(' ')[0]+'_mean',inplace=True)
     
     df_std = df_std.T
-    df_std.rename(columns=lambda x: x[:-3]+'_std',inplace=True)
+    df_std.rename(columns=lambda x: x.split(' ')[0]+'_std',inplace=True)
     
     df = pd.concat([df_meta,df_mean,df_std],axis=1).sort_index()
     df.index.names = ['Plot_ID']
-    df.set_index([df.index,'Area','FlightLine'])
+    df.set_index([df.index,'Area','SourceFile'])
     
     return df
 
@@ -186,6 +187,12 @@ def hyperspec_master(variables,layers):
             print(e)
     
     print('Saving outputs...')
-    if 'vnir' in locals(): vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label='Plot_id')
-    if 'swir' in locals(): swir_all.sort_index().to_csv(variables['outfile_swir'],index_label='Plot_id')
+    try:
+        if vnir: vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label='Plot_id')
+    except NameError as e:
+        print(e)
+    try:
+        if swir: swir_all.sort_index().to_csv(variables['outfile_swir'],index_label='Plot_id')
+    except NameError as e:
+        print(e)
     print('Done')
