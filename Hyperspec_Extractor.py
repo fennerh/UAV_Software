@@ -12,10 +12,7 @@ import numpy as np
 from shapely.geometry import shape
 from shapely.geometry.multipolygon import MultiPolygon
 import geopandas
-from natsort import natsort_keygen
 import os, re
-from functools import reduce
-
 
 def overlaps_flightline(flightline, shapefiles):
     '''
@@ -80,9 +77,9 @@ def extract_hyperspec(datafile, shapefiles):
     datafile : rasterio Datafile
         Any datafile that can be read by rasterio.
     shapefiles : GeoJSON
-        GeoJSON file of polygonised AOIs, CRS = 4326.
+        GeoJSON file of AOI polygons, CRS = 4326.
     polygonIds : list
-        List of uniqe ID values to filter shapefiles by.
+        List of unique ID values to filter shapefiles by.
 
     Returns
     -------
@@ -132,14 +129,14 @@ def extract_hyperspec(datafile, shapefiles):
 
 def hyperspec_master(variables,layers):
     '''
-    Sample the band mean and standard deviation of hyperspec data from VNIR and/or SWIR sensors for AOIs deinfed by shapefiles.
+    Sample the band mean and standard deviation of hyperspec data from VNIR and/or SWIR sensors for AOIs defined by shapefiles.
     
     Save results to outfile CSV file.
 
     Parameters
     ----------
     variables : dict.
-        Dictionary of variables required to process hypersectral data - outfile and shapefile
+        Dictionary of variables required to process Hyperspectral data - outfile and shapefile
     layers : dict.
         Dictionary of layers to be processed e.g. VNIR and/or SWIR.
 
