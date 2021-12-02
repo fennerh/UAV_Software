@@ -186,6 +186,6 @@ def hyperspec_master(variables,layers):
             print(e)
     
     print('Saving outputs...')
-    if vnir: vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label='Plot_id')
-    if swir: swir_all.sort_index().to_csv(variables['outfile_swir'],index_label='Plot_id')
+    if 'vnir' in locals(): vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label='Plot_id')
+    if 'swir' in locals(): swir_all.sort_index().to_csv(variables['outfile_swir'],index_label='Plot_id')
     print('Done')
