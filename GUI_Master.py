@@ -131,23 +131,6 @@ class ImageLabel(tk.Label):
             self.config(image=self.frames[self.loc])
             self.after(self.delay, self.next_frame)
 
-class Run_HyperSpec(threading.Thread):
-    def __init__(self,variables,layers):
-        super().__init__()
-        self.variables = variables
-        self.layers = layers
-        
-    def run(self):
-        hyperspec_master(self.variables, self.layers)
-        
-class Run_ImageCorrector(threading.Thread):
-    def __init__(self,variables):
-        super().__init__()
-        self.variables = variables
-                
-    def run(self):
-        SonyMaster().SonyImage_Master(self.variables)
-
 ## Software Class: Defines the Tkinter variables for the GUI software.
 class software(tk.Tk):
     def __init__(self,*args,**kwargs):
@@ -316,7 +299,7 @@ class ImageCalibrator(ttk.Frame):
         try:
             variables={'infolder':self.rawfolder.get(),'outfolder':self.outfolder.get(),'t5file':self.t5file.get(),'vigdest':self.vigfolder.get(),'camera':self.cam.get(),'average':self.average.get()}
             gc.collect()
-            thread_1 = Run_ImageCorrector(variables)
+            thread_1 = threading.Thread(target=SonyMaster().SonyImage_Master(variables))
             thread_1.setDaemon(True)
             thread_1.start()
             
@@ -503,7 +486,7 @@ class batchcalibrator(ttk.Frame):
         for batch in self.batch:
             print(batch)
             gc.collect()
-            thread_1 = Run_ImageCorrector(batch)
+            thread_1 = threading.Thread(target=SonyMaster().SonyImage_Master(batch))
             thread_1.setDaemon(True)
             thread_1.start()
             
@@ -757,6 +740,7 @@ class HyperSpecExtractor(ttk.Frame):
         elif sensor.lower() == 'vnir':
             self.out_vnir.set(folder)
         self._toggle_state('normal')
+    
     def monitor(self, thread):
         if thread.is_alive():
             # check the thread every 100ms
@@ -775,7 +759,7 @@ class HyperSpecExtractor(ttk.Frame):
                 variables = {'outfile_vnir':self.out_vnir.get(),'outfile_swir':self.out_swir.get(),'shapefile':self.shapefile.get()}
                 layers = {'VNIR':self.vnir.get(),'SWIR':self.swir.get()}
                 gc.collect()
-                thread_1 = Run_HyperSpec(variables, layers)
+                thread_1 = threading.Thread(target=hyperspec_master, args=(variables,layers))
                 thread_1.setDaemon(True)
                 thread_1.start()
                 
@@ -788,7 +772,10 @@ class HyperSpecExtractor(ttk.Frame):
 
     def _toggle_state(self, state):
         state = state if state in ('normal', 'disabled') else 'normal'
-        widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button6, self.button8,self.button9,self.button10)
+        try:
+            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button6, self.button8,self.button9,self.button10)
+        except:
+            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button8,self.button9,self.button10)
         for widget in widgets:
             widget.configure(state=state)
     def __init__(self,parent,controller):
