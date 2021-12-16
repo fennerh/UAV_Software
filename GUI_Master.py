@@ -6,6 +6,7 @@ Created on Thu Nov 25 10:19:00 2021
 """
 
 import os,sys
+from typing_extensions import IntVar
 
 ## Defines current working directory even in executable.
 def resource_path(relative_path):
@@ -50,6 +51,7 @@ import ctypes
 import rasterio
 import gc
 
+from random import randint
 from rasterio.mask import mask
 from datetime import datetime
 from osgeo import ogr, gdal
@@ -92,8 +94,6 @@ back_button = resource_path('Graphics\\button_back.png')
 sony_button = resource_path('Graphics\\button_camera.png')
 geojson_button = resource_path('Graphics\\button_shapefile.png')
 spectrum_button = resource_path('Graphics\\button_spectrum.png')
-shrug = resource_path('Graphics\\whatever-shrug.gif')
-# running = resource_path('processing.gif')
 
 class ImageLabel(tk.Label):
     """a label that displays images, and plays them if they are gifs"""
@@ -697,7 +697,7 @@ class HyperSpecExtractor(ttk.Frame):
 
         label = ImageLabel(window)
         label.pack(padx=10,pady=10)
-        label.load(shrug)
+        label.load(resource_path('Graphics\\'+str(randint(1,5))+'.gif'))
 
         button_close = ttk.Button(window, text="Close", command=window.destroy)
         button_close.pack(fill='x')
@@ -729,7 +729,19 @@ class HyperSpecExtractor(ttk.Frame):
     def get_shapefile(self):
         folder=tk.filedialog.askopenfilename(initialdir = "/",title = 'Shapefile',filetypes=(("geojson","*.geojson"),("all files","*.*")))
         self.shapefile.set(folder)
-        
+
+    def checkall(self):
+        all = [self.checkMean,self.checkMedian,self.checkstdev,self.checkCount]
+        if self.checkall.instate(['selected']) == True:
+            for a in all:
+                if a.instate(['selected']) == False:
+                    a.invoke()
+                print(a.cget('text'))
+        elif self.checkall.instate(['selected']) == False:
+                for a in all:
+                    if a.instate(['selected']) == True:
+                        a.invoke()
+                    
     def get_outfilename(self,sensor):
         folder=tk.filedialog.asksaveasfilename(initialdir = os.path.abspath(os.path.join(self.shapefile.get(),'../')),title = 'Output file',filetypes=(("csv","*.csv"),("all files","*.*")))
         if '.csv'  not in folder:
@@ -753,10 +765,15 @@ class HyperSpecExtractor(ttk.Frame):
     def run(self):
         if self.out_vnir.get() == '' and self.out_swir.get() == '':
             tk.messagebox.showinfo("Select Output file", "Please define a file name and location")
-        else:    
+        else:
+            all = [self.checkMean,self.checkMedian,self.checkstdev,self.checkCount]
+            samples = []
+            for a in all:
+                if a.instate(['selected']) == True:
+                    samples.append(a.cget('text'))  
             self._toggle_state('disabled')
             try:
-                variables = {'outfile_vnir':self.out_vnir.get(),'outfile_swir':self.out_swir.get(),'shapefile':self.shapefile.get()}
+                variables = {'outfile_vnir':self.out_vnir.get(),'outfile_swir':self.out_swir.get(),'shapefile':self.shapefile.get(),'samples':samples}
                 layers = {'VNIR':self.vnir.get(),'SWIR':self.swir.get()}
                 gc.collect()
                 thread_1 = threading.Thread(target=hyperspec_master, args=(variables,layers))
@@ -806,6 +823,12 @@ class HyperSpecExtractor(ttk.Frame):
         self.out_vnir.set('')
         self.out_swir=tk.StringVar()
         self.out_swir.set('')
+        self.xmean = tk.IntVar()
+        self.xmedian = tk.IntVar()
+        self.xstdev = tk.IntVar()
+        self.xcount = tk.IntVar()
+        self.xprcnt90 = tk.IntVar()
+        self.xall = tk.IntVar()
         info_btn = PhotoImage(file=info_button,master=self).subsample(5,5)
         hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
         ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
@@ -824,7 +847,22 @@ class HyperSpecExtractor(ttk.Frame):
         self.button3.grid(row=5,column=1,pady=10)
         self.button4=ttk.Button(self.midframe,text='Run',command=self.run,width=15)
         self.button4.configure(state='disabled')
-        self.button4.grid(row=10,column=2,pady=10,padx=75)
+        self.button4.grid(row=11,column=2,pady=10,padx=75)
+
+        self.checkframe=tk.Frame(self.midframe)
+        self.checkframe.grid(row=10,column=2)
+        self.checkMean=ttk.Checkbutton(self.checkframe,text='Mean',variable=self.xmean,onvalue='Mean')
+        self.checkMean.grid(row=1,column=1)
+        self.checkMedian=ttk.Checkbutton(self.checkframe,text='Median',variable=self.xmedian,onvalue='Median')
+        self.checkMedian.grid(row=1,column=2)
+        self.checkstdev=ttk.Checkbutton(self.checkframe,text='StDev',variable=self.xstdev,onvalue='StDev')
+        self.checkstdev.grid(row=1,column=3)
+        self.checkCount=ttk.Checkbutton(self.checkframe,text='Count',variable=self.xcount,onvalue='Count')
+        self.checkCount.grid(row=1,column=4)
+        # self.checkprcnt90=tk.Checkbutton(self.checkframe,text='90th Percentile',variable=self.xprcnt90)
+        # self.checkprcnt90.grid(row=2,column=2)
+        self.checkall=ttk.Checkbutton(self.checkframe,text='All',command=self.checkall,variable=self.xall)
+        self.checkall.grid(row=2,column=2)
 
         self.button8=ttk.Button(self.btmframe,image=hme_btn,text='Home',tooltip='Go Home (your drunk)',command=lambda: controller.show_frame(HomePage),compound="top")
         self.button8.image=hme_btn 

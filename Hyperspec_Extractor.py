@@ -64,7 +64,7 @@ def overlaps_flightline(flightline, shapefiles):
 
     return df
 
-def extract_hyperspec(datafile, shapefiles):
+def extract_hyperspec(datafile, shapefiles,samples):
     '''
     1) Isolate polygons which cover the same area as datafile.
     
@@ -92,9 +92,10 @@ def extract_hyperspec(datafile, shapefiles):
     with rasterio.open(datafile) as img_rstr:
         bands = img_rstr.descriptions    
     
-        df_mean = pd.DataFrame(index=bands)
-        df_std = pd.DataFrame(index=bands)
-        df_meta = pd.DataFrame(index=plots.plot_id)
+        Samples = samples
+        cols = [x.split(' ')[0]+'_'+a for a in Samples for x in bands]
+    
+        df = pd.DataFrame(columns=cols,index=plots.plot_id)
         
         
         for shp in plots.plot_id:
@@ -108,22 +109,19 @@ def extract_hyperspec(datafile, shapefiles):
             array = img_rstr.read(window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform))
             ary = np.ma.masked_where(result_3d!=shp,array)
             
-            df_mean.loc[bands,shp] = ary.mean(axis=(1,2))
-            
-            df_meta.loc[shp,'Area'] = plots[plots['plot_id']==shp].Area.iloc[0]
-            df_meta.loc[shp,'SourceFile'] = os.path.basename(datafile)
-            
-            df_std.loc[bands,shp] = ary.std(axis=(1,2))
-            
-    df_mean = df_mean.T    
-    df_mean.rename(columns=lambda x: x.split(' ')[0]+'_mean',inplace=True)
-    
-    df_std = df_std.T
-    df_std.rename(columns=lambda x: x.split(' ')[0]+'_std',inplace=True)
-    
-    df = pd.concat([df_meta,df_mean,df_std],axis=1).sort_index()
-    df.index.names = ['Plot_ID']
-    df.set_index([df.index,'Area','SourceFile'])
+            if 'Mean' in samples:
+                df.loc[shp, df.columns.str.contains('_Mean')] = np.ma.mean(ary,axis=(1,2))
+            if 'Median' in samples:
+                df.loc[shp, df.columns.str.contains('_Median')] = np.ma.median(ary, axis=(1,2))
+            if 'Count' in samples:
+                df.loc[shp, df.columns.str.contains('Count')] = np.ma.count(ary,axis=(1,2))
+            if 'StDev' in samples:
+                df.loc[shp, df.columns.str.contains('_StDev')] = np.ma.std(ary,axis=(1,2))
+
+            df.loc[shp,'Area'] = plots[plots['plot_id']==shp].Area.iloc[0]
+            df.loc[shp,'SourceFile'] = os.path.basename(datafile)
+
+    df.set_index([df.index,'Area','SourceFile'],inplace=True)
     
     return df
 
@@ -160,7 +158,7 @@ def hyperspec_master(variables,layers):
             vnir=[]
             files = [a for a in re.split("'|,",layers['VNIR']) if os.path.isfile(a)]
             for file in files:
-                df = extract_hyperspec(file, variables['shapefile'])
+                df = extract_hyperspec(file, variables['shapefile'],variables['samples'])
                 print(f'{file} processed')
                 vnir.append(df)
                 
@@ -175,7 +173,7 @@ def hyperspec_master(variables,layers):
             files = [a for a in re.split("'|,",layers['SWIR']) if os.path.isfile(a)]
             for file in re.split("'|,",layers['SWIR']):
                 if os.path.isfile(file):
-                    df = extract_hyperspec(file,variables['shapefile'])
+                    df = extract_hyperspec(file,variables['shapefile'],variables['samples'])
                     print(f'{file} processed')
                     swir.append(df)
     
@@ -185,11 +183,11 @@ def hyperspec_master(variables,layers):
     
     print('Saving outputs...')
     try:
-        if vnir: vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label='Plot_id')
+        if vnir: vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label=['Plot_id','Area','SourceFile'])
     except NameError as e:
         print(e)
     try:
-        if swir: swir_all.sort_index().to_csv(variables['outfile_swir'],index_label='Plot_id')
+        if swir: swir_all.sort_index().to_csv(variables['outfile_swir'],index_label=['Plot_id','Area','SourceFile'])
     except NameError as e:
         print(e)
     print('Done')
