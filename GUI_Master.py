@@ -67,6 +67,7 @@ from queue import Queue
 from SonyImage_master import SonyMaster
 from PlotShapfile_Extractor import shapefile_gen
 from Hyperspec_Extractor import hyperspec_master
+from mergingSony import orthoMerge
 from itertools import count
 from PIL import ImageTk, Image
 
@@ -94,6 +95,7 @@ back_button = resource_path('Graphics\\button_back.png')
 sony_button = resource_path('Graphics\\button_camera.png')
 geojson_button = resource_path('Graphics\\button_shapefile.png')
 spectrum_button = resource_path('Graphics\\button_spectrum.png')
+layers_button = resource_path('Graphics\\button_layers.png')
 
 class ImageLabel(tk.Label):
     """a label that displays images, and plays them if they are gifs"""
@@ -144,7 +146,7 @@ class software(tk.Tk):
         container.grid_columnconfigure(0,weight=1)
 
         self.frames={}
-        for F in (HomePage,ImageCalibrator,batchcalibrator,Shapefilegenerator,HyperSpecExtractor): #DataMerger,DataExtractor
+        for F in (HomePage,ImageCalibrator,batchcalibrator,Shapefilegenerator,HyperSpecExtractor,OrthoMerging): #DataMerger,DataExtractor
             frame=F(container,self)
             self.frames[F]=frame
             frame.grid(row=0,column=0,sticky='nsew')
@@ -195,21 +197,23 @@ class HomePage(ttk.Frame):
         clb_btn = PhotoImage(file=sony_button,master=self).subsample(2,2)
         shp_btn = PhotoImage(file=geojson_button,master=self).subsample(2,2)
         spc_btn = PhotoImage(file=spectrum_button,master=self).subsample(2,2)
-
-        # label=tk.Label(self.topframe,text='Home Page',font=Large_Font)
-        # label.grid(column=1)
+        lyr_btn = PhotoImage(file=layers_button,master=self).subsample(2,2)
 
         button1=ttk.Button(self.midframe,text='Image Calibration Tool',image=clb_btn,tooltip='Tool for calibrating Sony a6000 RAW imagery to calibrated reflectance' ,command=lambda: controller.show_frame(ImageCalibrator),compound='top')
         button1.image = clb_btn
         button1.grid(row=1,column=1,padx=15, pady=15)
 
+        button2=ttk.Button(self.midframe,text='Ortho Merger',image=lyr_btn,tooltip='Tool for merging orthomosaics from different sensors',command=lambda: controller.show_frame(OrthoMerging),compound='top')
+        button2.image = lyr_btn
+        button2.grid(row=1,column=2,padx=15, pady=15)
+
         button4=ttk.Button(self.midframe,text='Shapefile Generator',image=shp_btn,tooltip='Tool for generating GeoJSON files from Area of Interest shapefiles',command=lambda: controller.show_frame(Shapefilegenerator),compound='top')
         button4.image = shp_btn
-        button4.grid(row=1,column=2,padx=15, pady=15)
+        button4.grid(row=2,column=1,padx=15, pady=15)
         
         button3=ttk.Button(self.midframe,text='HyperSpec Extractor',image=spc_btn,tooltip='Tool for extracting data from Hyperspectral sensors',command=lambda: controller.show_frame(HyperSpecExtractor),compound='top')
         button3.image = spc_btn
-        button3.grid(row=2,column=1,padx=15, pady=15)
+        button3.grid(row=2,column=2,padx=15, pady=15)
        
         button5=ttk.Button(self.btmframe,text='Quit',image=ext_btn,tooltip='Quit software and all running processes',command=controller.enditall,compound='top')
         button5.image=ext_btn
@@ -686,7 +690,7 @@ class Shapefilegenerator(ttk.Frame):
         self.entry2=ttk.Entry(self.midframe,textvariable=self.out_file,width=75)
         self.entry2.grid(row=3,column=2,padx=5)
         
-## Shapefile Class: defines the variables for the appearance and function of the shapefile generator Tool.
+## HyperSpecExtractor Class: defines the variables for the appearance and function of the Hyperspec data extractor Tool.
 class HyperSpecExtractor(ttk.Frame):
     def popup_window(self):
         win_x = self.winfo_rootx()+500
@@ -731,13 +735,12 @@ class HyperSpecExtractor(ttk.Frame):
         self.shapefile.set(folder)
 
     def checkall(self):
-        all = [self.checkMean,self.checkMedian,self.checkstdev,self.checkCount]
-        if self.checkall.instate(['selected']) == True:
+        all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount]
+        if self.checkAll.instate(['selected']) == True:
             for a in all:
                 if a.instate(['selected']) == False:
                     a.invoke()
-                print(a.cget('text'))
-        elif self.checkall.instate(['selected']) == False:
+        elif self.checkAll.instate(['selected']) == False:
                 for a in all:
                     if a.instate(['selected']) == True:
                         a.invoke()
@@ -766,7 +769,7 @@ class HyperSpecExtractor(ttk.Frame):
         if self.out_vnir.get() == '' and self.out_swir.get() == '':
             tk.messagebox.showinfo("Select Output file", "Please define a file name and location")
         else:
-            all = [self.checkMean,self.checkMedian,self.checkstdev,self.checkCount]
+            all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount]
             samples = []
             for a in all:
                 if a.instate(['selected']) == True:
@@ -854,15 +857,15 @@ class HyperSpecExtractor(ttk.Frame):
         self.checkMean=ttk.Checkbutton(self.checkframe,text='Mean',variable=self.xmean,onvalue='Mean')
         self.checkMean.grid(row=1,column=1)
         self.checkMedian=ttk.Checkbutton(self.checkframe,text='Median',variable=self.xmedian,onvalue='Median')
-        self.checkMedian.grid(row=1,column=2)
-        self.checkstdev=ttk.Checkbutton(self.checkframe,text='StDev',variable=self.xstdev,onvalue='StDev')
-        self.checkstdev.grid(row=1,column=3)
+        self.checkMedian.grid(row=1,column=3)
+        self.checkStdev=ttk.Checkbutton(self.checkframe,text='StDev',variable=self.xstdev,onvalue='StDev')
+        self.checkStdev.grid(row=2,column=1)
         self.checkCount=ttk.Checkbutton(self.checkframe,text='Count',variable=self.xcount,onvalue='Count')
-        self.checkCount.grid(row=1,column=4)
+        self.checkCount.grid(row=2,column=3)
         # self.checkprcnt90=tk.Checkbutton(self.checkframe,text='90th Percentile',variable=self.xprcnt90)
         # self.checkprcnt90.grid(row=2,column=2)
-        self.checkall=ttk.Checkbutton(self.checkframe,text='All',command=self.checkall,variable=self.xall)
-        self.checkall.grid(row=2,column=2)
+        self.checkAll=ttk.Checkbutton(self.checkframe,text='All',command=self.checkall,variable=self.xall)
+        self.checkAll.grid(row=3,column=2)
 
         self.button8=ttk.Button(self.btmframe,image=hme_btn,text='Home',tooltip='Go Home (your drunk)',command=lambda: controller.show_frame(HomePage),compound="top")
         self.button8.image=hme_btn 
@@ -881,6 +884,199 @@ class HyperSpecExtractor(ttk.Frame):
         self.entry2.grid(row=3,column=2,columnspan=2,padx=5)
         self.entry3=ttk.Entry(self.midframe,textvariable=self.swir_short,width=75)
         self.entry3.grid(row=5,column=2,columnspan=2,padx=5)
+
+class OrthoMerging(ttk.Frame):
+    def popup_window(self):
+        win_x = self.winfo_rootx()+500
+        win_y = self.winfo_rooty()+150
+        window = tk.Toplevel()
+        window.geometry(f'+{win_x}+{win_y}')
+        window.title('HyperSpec Extractor - Help')
+
+        label = tk.Label(window, text='''
+        Inputs = orthomosaics for same field to be combined into one single multi-layer ortho.
+
+        Output will be compressed using LZW and predictor 2, please ensure enough space on disk for temporary files.
+
+        DEM (Digital Elevation Model) is the bare ground one, double check if you need to, but definitely bare ground.''',justify='left')
+        label.pack(fill='x', padx=50, pady=50)
+
+        button_close = ttk.Button(window, text="Close", command=window.destroy)
+        button_close.pack(fill='x')
+        
+    def get_rgb(self):
+        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'RGB',filetypes=(("tif","*.tif"),("all files","*.*")))
+        self.rgb.set([a for a in files]) 
+        self.rgb_short.set([os.path.basename(b)+' ' for b in files])
+        # return(self.button5)
+      
+    def get_nir(self):
+        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'NIR',filetypes=(("tif","*.tif"),("all files","*.*")))
+        self.nir.set(files)
+        self.nir_short.set([os.path.basename(b)+' ' for b in files])
+    
+    def get_DEM(self):
+        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'Bare Ground DEM',filetypes=(("tif","*.tif"),("all files","*.*")))
+        self.nir.set(files)
+        self.nir_short.set([os.path.basename(b)+' ' for b in files])
+
+    def get_DSM(self):
+        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'DSM',filetypes=(("tif","*.tif"),("all files","*.*")))
+        self.nir.set(files)
+        self.nir_short.set([os.path.basename(b)+' ' for b in files])
+
+    # def checkall(self):
+    #     all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount]
+    #     if self.checkAll.instate(['selected']) == True:
+    #         for a in all:
+    #             if a.instate(['selected']) == False:
+    #                 a.invoke()
+    #     elif self.checkAll.instate(['selected']) == False:
+    #             for a in all:
+    #                 if a.instate(['selected']) == True:
+    #                     a.invoke()
+                    
+    def get_outfilename(self,sensor):
+        folder=tk.filedialog.asksaveasfilename(initialdir = os.path.abspath(os.path.join(self.shapefile.get(),'../')),title = 'Output file',filetypes=(("csv","*.csv"),("all files","*.*")))
+        if '.tif'  not in folder:
+            folder += '.tif'
+        self.out_file.set(folder)
+        self._toggle_state('normal')
+    
+    def monitor(self, thread):
+        if thread.is_alive():
+            # check the thread every 100ms
+            self.after(100, lambda: self.monitor(thread))
+        else:
+            tk.messagebox.showinfo("Processing Complete", "Processing Complete")
+            gc.collect()
+            self._toggle_state('enabled')
+        
+    def run(self):
+        if self.out_file.get() == '':
+            tk.messagebox.showinfo("Select Output file", "Please define a file name and location")
+        else:
+            self._toggle_state('disabled')
+            try:
+                # variables = {'outfile_vnir':self.out_vnir.get(),'outfile_swir':self.out_swir.get(),'shapefile':self.shapefile.get(),'samples':samples}
+                # layers = {'VNIR':self.vnir.get(),'SWIR':self.swir.get()}
+                gc.collect()
+                thread_1 = threading.Thread(target=orthoMerge, args=(self.rgb.get(),self.nir.get(),self.out_file.get()))
+                thread_1.setDaemon(True)
+                thread_1.start()
+                
+                self.monitor(thread_1)
+                
+            except Exception as e:
+                tk.messagebox.showerror("Error", e)
+                traceback.print_exc()
+                self._toggle_state('normal')
+
+    def _toggle_state(self, state):
+        state = state if state in ('normal', 'disabled') else 'normal'
+        try:
+            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button6, self.button8,self.button9,self.button10)
+        except:
+            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button8,self.button9,self.button10)
+        for widget in widgets:
+            widget.configure(state=state)
+    def __init__(self,parent,controller):
+        tk.Frame.__init__(self,parent)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
+        self.topframe = tk.Frame(self)
+        self.midframe = tk.Frame(self)
+        self.btmframe = tk.Frame(self)
+        
+        self.topframe.grid(row=0)
+        self.midframe.grid(row=1)
+        self.btmframe.grid(row=2)
+
+         #---VARIABLES---#
+        self.rgb=tk.StringVar()
+        self.rgb.set('')
+        self.rgb_short=tk.StringVar()
+        self.rgb_short.set('')        
+        self.nir=tk.StringVar()
+        self.nir.set('')
+        self.nir_short=tk.StringVar()
+        self.nir_short.set('')          
+        self.DEM=tk.StringVar()
+        self.DEM.set('')
+        self.DSM=tk.StringVar()
+        self.DSM.set('')
+        self.out_file=tk.StringVar()
+        self.out_file.set('')
+
+        # self.xmean = tk.IntVar()
+        # self.xmedian = tk.IntVar()
+        # self.xstdev = tk.IntVar()
+        # self.xcount = tk.IntVar()
+        # self.xprcnt90 = tk.IntVar()
+        # self.xall = tk.IntVar()
+        info_btn = PhotoImage(file=info_button,master=self).subsample(5,5)
+        hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
+        ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
+
+        self.label=tk.Label(self.topframe,text='Orthophoto Merger',font=Large_Font)
+        self.label.grid(row=0,column=2,padx=10)
+        
+        self.label=tk.Label(self.topframe,text='Merge orthophotos into a single multilayer orthophoto, compressed using LZW(2).\n \n Hover over inputs/outputs for more info.\n \n DEM = Bare Ground; DSM = the one with crops in.',font=Norm_Font)
+        self.label.grid(row=1,column=2,padx=10)
+
+        self.button1=ttk.Button(self.midframe,text='RGB',command=self.get_rgb,tooltip='RGB orthomosaic',width=20)
+        self.button1.grid(row=2,column=1,pady=10)
+        self.button2=ttk.Button(self.midframe,text='NIR',command=self.get_nir,tooltip='NIR orthomosaic',width=20)
+        self.button2.grid(row=3,column=1,pady=10)
+        self.button3=ttk.Button(self.midframe,text='DEM (BG)',command=self.get_nir,tooltip='Bare Ground DEM',width=20)
+        self.button3.grid(row=4,column=1,pady=10)
+        self.button4=ttk.Button(self.midframe,text='DSM',command=self.get_nir,tooltip='Digital Surface Model (with crops!)',width=20)
+        self.button4.grid(row=5,column=1,pady=10)
+        self.button5=ttk.Button(self.midframe,text='OutFile',command=self.get_outfilename,tooltip='Outpath for generated orthomosaic (.tif)',width=20)
+        self.button5.grid(row=6,column=1,pady=10)
+        self.button6=ttk.Button(self.midframe,text='Run',command=self.run,width=15)
+        self.button6.configure(state='disabled')
+        self.button6.grid(row=11,column=2,pady=10,padx=75)
+
+        # self.checkframe=tk.Frame(self.midframe)
+        # self.checkframe.grid(row=10,column=2)
+        # self.checkMean=ttk.Checkbutton(self.checkframe,text='Mean',variable=self.xmean,onvalue='Mean')
+        # self.checkMean.grid(row=1,column=1)
+        # self.checkMedian=ttk.Checkbutton(self.checkframe,text='Median',variable=self.xmedian,onvalue='Median')
+        # self.checkMedian.grid(row=1,column=3)
+        # self.checkStdev=ttk.Checkbutton(self.checkframe,text='StDev',variable=self.xstdev,onvalue='StDev')
+        # self.checkStdev.grid(row=2,column=1)
+        # self.checkCount=ttk.Checkbutton(self.checkframe,text='Count',variable=self.xcount,onvalue='Count')
+        # self.checkCount.grid(row=2,column=3)
+        # # self.checkprcnt90=tk.Checkbutton(self.checkframe,text='90th Percentile',variable=self.xprcnt90)
+        # # self.checkprcnt90.grid(row=2,column=2)
+        # self.checkAll=ttk.Checkbutton(self.checkframe,text='All',command=self.checkall,variable=self.xall)
+        # self.checkAll.grid(row=3,column=2)
+
+        self.button8=ttk.Button(self.btmframe,image=hme_btn,text='Home',tooltip='Go Home (your drunk)',command=lambda: controller.show_frame(HomePage),compound="top")
+        self.button8.image=hme_btn 
+        self.button8.grid(row=1,column=1,padx=5,pady=10)
+        self.button9=ttk.Button(self.btmframe,image=info_btn,text='Help',command=self.popup_window,tooltip='Press for more help',compound="top")
+        self.button9.image=info_btn  
+        self.button9.grid(row=1,column=2,padx=5,pady=10)
+        self.button10=ttk.Button(self.btmframe,text='Quit',image=ext_btn,tooltip='Quit software and all running processes',command=controller.enditall,compound="top")
+        self.button10.image=ext_btn 
+        self.button10.grid(row=1,column=3,padx=5,pady=10)
+
+          #---ENTRIES---#
+        # self.entry1=ttk.Entry(self.midframe,textvariable=self.shapefile,width=75)
+        # self.entry1.grid(row=2,column=2,columnspan=2,padx=5)
+        self.entry2=ttk.Entry(self.midframe,textvariable=self.rgb_short,width=75)
+        self.entry2.grid(row=2,column=2,columnspan=2,padx=5)
+        self.entry3=ttk.Entry(self.midframe,textvariable=self.nir_short,width=75)
+        self.entry3.grid(row=3,column=2,columnspan=2,padx=5)
+        self.entry4=ttk.Entry(self.midframe,textvariable=self.DEM,width=75)
+        self.entry4.grid(row=4,column=2,columnspan=2,padx=5)
+        self.entry5=ttk.Entry(self.midframe,textvariable=self.DSM,width=75)
+        self.entry5.grid(row=5,column=2,columnspan=2,padx=5)
+        self.entry6=ttk.Entry(self.midframe,textvariable=self.out_file,width=75)
+        self.entry6.grid(row=6,column=2,columnspan=2,padx=5)
 
 if __name__ == "__main__":
     app=software()
