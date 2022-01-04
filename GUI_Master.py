@@ -735,7 +735,7 @@ class HyperSpecExtractor(ttk.Frame):
         self.shapefile.set(folder)
 
     def checkall(self):
-        all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount]
+        all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount,self.checkPrcnt99]
         if self.checkAll.instate(['selected']) == True:
             for a in all:
                 if a.instate(['selected']) == False:
@@ -769,7 +769,7 @@ class HyperSpecExtractor(ttk.Frame):
         if self.out_vnir.get() == '' and self.out_swir.get() == '':
             tk.messagebox.showinfo("Select Output file", "Please define a file name and location")
         else:
-            all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount]
+            all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount,self.checkPrcnt99]
             samples = []
             for a in all:
                 if a.instate(['selected']) == True:
@@ -830,7 +830,7 @@ class HyperSpecExtractor(ttk.Frame):
         self.xmedian = tk.IntVar()
         self.xstdev = tk.IntVar()
         self.xcount = tk.IntVar()
-        self.xprcnt90 = tk.IntVar()
+        self.xprcnt99 = tk.IntVar()
         self.xall = tk.IntVar()
         info_btn = PhotoImage(file=info_button,master=self).subsample(5,5)
         hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
@@ -862,8 +862,8 @@ class HyperSpecExtractor(ttk.Frame):
         self.checkStdev.grid(row=2,column=1)
         self.checkCount=ttk.Checkbutton(self.checkframe,text='Count',variable=self.xcount,onvalue='Count')
         self.checkCount.grid(row=2,column=3)
-        # self.checkprcnt90=tk.Checkbutton(self.checkframe,text='90th Percentile',variable=self.xprcnt90)
-        # self.checkprcnt90.grid(row=2,column=2)
+        self.checkPrcnt99=ttk.Checkbutton(self.checkframe,text='99th %',variable=self.xprcnt99,onvalue='99th %')
+        self.checkPrcnt99.grid(row=2,column=2)
         self.checkAll=ttk.Checkbutton(self.checkframe,text='All',command=self.checkall,variable=self.xall)
         self.checkAll.grid(row=3,column=2)
 
@@ -961,7 +961,7 @@ class OrthoMerging(ttk.Frame):
                 # variables = {'outfile_vnir':self.out_vnir.get(),'outfile_swir':self.out_swir.get(),'shapefile':self.shapefile.get(),'samples':samples}
                 # layers = {'VNIR':self.vnir.get(),'SWIR':self.swir.get()}
                 gc.collect()
-                thread_1 = threading.Thread(target=orthoMerge, args=(self.rgb.get(),self.nir.get(),self.out_file.get()))
+                thread_1 = threading.Thread(target=orthoMerge, args=(self.rgb.get(),self.nir.get(),self.DEM.get(),self.DSM.get(),self.out_file.get()))
                 thread_1.setDaemon(True)
                 thread_1.start()
                 

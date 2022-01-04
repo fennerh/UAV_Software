@@ -12,27 +12,24 @@ import os, shutil
 
 ##Assumes geojson has been produced with geojson tool, and plot_id provides the plot number.##
 
-def orthoMerge(inRGB,inNIR,outPath):
+def orthoMerge(inRGB,inNIR,inDEM,inDSM,outPath):
     '''
-    Tool to merge RGB and NIR orthophotos for overall simplification of every other aspect of dealing with data from these sensors.
-    
-    Applies LZW compression with Predictor set to 2.
-    
-    Believe me, its worth it.
+    Merge orthomosaics into single file. LZW compression applied with 2nd predictor.
+
+    Will perform preliminary check for sufficient disk space.
 
     Parameters
     ----------
     inRGB : str
-        Path to RGB orthophoto. Assumes band order is RGB - 123.
+        File path for RGB orthomosaic.
     inNIR : str
-        Path to NIR orthophoto. Assumes band order is NIR - 1.
+        File path for NIR orthomosaic.
+    inDEM : str
+        File path for DEM orthomosaic.
+    inDSM : str
+        File path for DSM orthomosaic.
     outPath : str
-        Path for output orthophoto.
-
-    Returns
-    -------
-    Saves new 4 band GeoTiff to outPath location.
-
+        File path for output file.
     '''
     print(outPath)
     disk = os.path.split(outPath)[0]
@@ -51,8 +48,6 @@ def orthoMerge(inRGB,inNIR,outPath):
             with rasterio.open(inNIR) as src:
                 
                 profile = dest.meta.copy()
-                # profile['predictor'] = 2
-                # profile['bigtiff'] = 'YES'
                 print(profile)
 
                 destiny = np.zeros(dest.shape,np.float32)
@@ -67,7 +62,35 @@ def orthoMerge(inRGB,inNIR,outPath):
         
                 datas = [dest.read(3),dest.read(2),dest.read(1),destiny]
 
-        with rasterio.open(outPathT,'w',**profile,num_threads='all_cpus') as dst:       
+            if inDSM != '' and inDEM != '':
+                with rasterio.open(inDSM) as DSM:
+                    with rasterio.open(inDEM) as DEM:
+
+                        destiny_DSM = np.zeros(dest.shape,np.float32)
+                        destiny_DEM = np.zeros(dest.shape,np.float32)
+
+                        warp.reproject(source=DSM.read(1),
+                            destination=destiny_DSM,
+                            src_transform=DSM.transform,
+                            src_crs=DSM.crs,
+                            dst_transform=dest.transform,
+                            dst_crs=dest.crs,
+                            resampling=rasterio.warp.Resampling.nearest)
+
+                        warp.reproject(source=DEM.read(1),
+                            destination=destiny_DEM,
+                            src_transform=DEM.transform,
+                            src_crs=DEM.crs,
+                            dst_transform=dest.transform,
+                            dst_crs=dest.crs,
+                            resampling=rasterio.warp.Resampling.nearest)
+
+                        norm_DEM = destiny_DEM - destiny_DSM
+                datas.append(norm_DEM)
+                bands.append('nDEM')
+
+
+        with rasterio.open(outPath,'w',**profile,num_threads='all_cpus') as dst:       
             for index, value in enumerate(datas):
                 print(bands[index], value.mean())
                 dst.write_band(index+1,value)

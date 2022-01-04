@@ -117,6 +117,8 @@ def extract_hyperspec(datafile, shapefiles,samples):
                 df.loc[shp, df.columns.str.contains('Count')] = np.ma.count(ary,axis=(1,2))
             if 'StDev' in samples:
                 df.loc[shp, df.columns.str.contains('_StDev')] = np.ma.std(ary,axis=(1,2))
+            if '99th %' in samples:
+                df.loc[shp,df.columns.str.contains('_99th %')] = np.percentile(ary.compressed(),99)
 
             df.loc[shp,'Area'] = plots[plots['plot_id']==shp].Area.iloc[0]
             df.loc[shp,'SourceFile'] = os.path.basename(datafile)
