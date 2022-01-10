@@ -12,7 +12,7 @@ import os, shutil
 
 ##Assumes geojson has been produced with geojson tool, and plot_id provides the plot number.##
 
-def orthoMerge(inRGB,inNIR,inDEM,inDSM,outPath):
+def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath):
     '''
     Merge orthomosaics into single file. LZW compression applied with 2nd predictor.
 
@@ -42,7 +42,7 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,outPath):
     if (free // (2**30)) < 20:
         print('Not enough free disk space, will need >20gb temporarily for this bad boy')
     else:
-        bands = ['Blue','Green','Red','NIR']
+        bands = ['Blue','Green','Red','NIR','NDVI']
         
         with rasterio.open(inRGB) as dest:
             with rasterio.open(inNIR) as src:
@@ -60,7 +60,8 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,outPath):
                             dst_crs=dest.crs,
                             resampling=rasterio.warp.Resampling.nearest)
         
-                datas = [dest.read(3),dest.read(2),dest.read(1),destiny]
+                ndvi = (destiny - dest.read(1))/(destiny + dest.read(1))
+                datas = [dest.read(3),dest.read(2),dest.read(1),destiny,ndvi]
 
             if inDSM != '' and inDEM != '':
                 with rasterio.open(inDSM) as DSM:
@@ -89,6 +90,22 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,outPath):
                 datas.append(norm_DEM)
                 bands.append('nDEM')
 
+            if inOther != '':
+                with rasterio.open(inOther[1]   ) as other:
+                    destiny_other = np.zeros(dest.shape,np.float32)
+
+                    warp.reproject(source=other.read(1),
+                            destination=destiny_other,
+                            src_transform=other.transform,
+                            src_crs=other.crs,
+                            dst_transform=dest.transform,
+                            dst_crs=dest.crs,
+                            resampling=rasterio.warp.Resampling.nearest)
+
+                datas.append(destiny_other)
+                bands.append(inOther[0])
+
+
 
         with rasterio.open(outPath,'w',**profile,num_threads='all_cpus') as dst:       
             for index, value in enumerate(datas):
@@ -108,7 +125,7 @@ if __name__ == "__main__":
     outPath = r'D:\SMs_ortho_LZW.tif'
     outPathT = r'D:\SMs_ortho_LZW_temp.tif'
 
-    dataMerge(inRGB, inNIR, outPath)
+    orthoMerge(inRGB, inNIR, outPath)
 
 
 #%% Compression Test results:

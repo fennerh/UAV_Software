@@ -88,16 +88,20 @@ def extract_hyperspec(datafile, shapefiles,samples):
 
     '''
     plots = overlaps_flightline(datafile, shapefiles)
+    custom_header = ''
     
     with rasterio.open(datafile) as img_rstr:
         bands = img_rstr.descriptions    
-    
-        Samples = samples
-        cols = [x.split(' ')[0]+'_'+a for a in Samples for x in bands]
+        
+        Sampling = samples.copy()
+        if type(samples[-1]) == dict:
+            custom_header = samples[-1].get('custom')+'th%'
+            Sampling[-1] = custom_header
+
+        cols = [x.split(' ')[0]+'_'+a for a in Sampling for x in bands]
     
         df = pd.DataFrame(columns=cols,index=plots.plot_id)
-        
-        
+              
         for shp in plots.plot_id:
 
             window = img_rstr.window(*plots[plots['plot_id']==shp].bounds.iloc[0])
@@ -108,17 +112,22 @@ def extract_hyperspec(datafile, shapefiles,samples):
             result_3d = np.repeat(result[np.newaxis,...],(img_rstr.count),0)        
             array = img_rstr.read(window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform))
             ary = np.ma.masked_where(result_3d!=shp,array)
+            ary = np.ma.masked_where(ary==0,ary)
             
-            if 'Mean' in samples:
+            if 'Mean' in Sampling:
                 df.loc[shp, df.columns.str.contains('_Mean')] = np.ma.mean(ary,axis=(1,2))
-            if 'Median' in samples:
+            if 'Median' in Sampling:
                 df.loc[shp, df.columns.str.contains('_Median')] = np.ma.median(ary, axis=(1,2))
-            if 'Count' in samples:
+            if 'Count' in Sampling:
                 df.loc[shp, df.columns.str.contains('Count')] = np.ma.count(ary,axis=(1,2))
-            if 'StDev' in samples:
+            if 'StDev' in Sampling:
                 df.loc[shp, df.columns.str.contains('_StDev')] = np.ma.std(ary,axis=(1,2))
-            if '99th %' in samples:
-                df.loc[shp,df.columns.str.contains('_99th %')] = np.percentile(ary.compressed(),99)
+            if '99th%' in Sampling:
+                df.loc[shp,df.columns.str.contains('_99th%')] = np.nanpercentile(ary.astype(float).filled(np.nan),99,axis=(1,2))
+            if '90th%' in Sampling:
+                df.loc[shp,df.columns.str.contains('_90th%')] = np.nanpercentile(ary.astype(float).filled(np.nan),90,axis=(1,2))
+            if custom_header in Sampling:
+                df.loc[shp,df.columns.str.contains(custom_header)] = np.nanpercentile(ary.astype(float).filled(np.nan),int(samples[-1].get('custom')),axis=(1,2))
 
             df.loc[shp,'Area'] = plots[plots['plot_id']==shp].Area.iloc[0]
             df.loc[shp,'SourceFile'] = os.path.basename(datafile)
@@ -165,7 +174,8 @@ def hyperspec_master(variables,layers):
                 vnir.append(df)
                 
             vnir_all = pd.concat(vnir)
-            
+            vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label=['Plot_id','Area','SourceFile'])
+        
         except Exception as e:
             print(e)
             
@@ -180,16 +190,9 @@ def hyperspec_master(variables,layers):
                     swir.append(df)
     
             swir_all = pd.concat(swir)
+            swir_all.sort_index().to_csv(variables['outfile_swir'],index_label=['Plot_id','Area','SourceFile'])
         except Exception as e:
             print(e)
     
     print('Saving outputs...')
-    try:
-        if vnir: vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label=['Plot_id','Area','SourceFile'])
-    except NameError as e:
-        print(e)
-    try:
-        if swir: swir_all.sort_index().to_csv(variables['outfile_swir'],index_label=['Plot_id','Area','SourceFile'])
-    except NameError as e:
-        print(e)
     print('Done')
