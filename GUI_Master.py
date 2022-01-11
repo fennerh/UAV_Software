@@ -67,7 +67,7 @@ from ttkwidgets.autocomplete import AutocompleteCombobox
 from queue import Queue
 from SonyImage_master import SonyMaster
 from PlotShapfile_Extractor import shapefile_gen
-from Hyperspec_Extractor import hyperspec_master
+from Data_Extractor import hyperspec_master
 from mergingSony import orthoMerge
 from itertools import count
 from PIL import ImageTk, Image
@@ -96,7 +96,7 @@ exit_button = resource_path('Graphics\\button_exit.png')
 back_button = resource_path('Graphics\\button_back.png')
 sony_button = resource_path('Graphics\\button_camera.png')
 geojson_button = resource_path('Graphics\\button_shapefile.png')
-spectrum_button = resource_path('Graphics\\button_spectrum.png')
+spectrum_button = resource_path('Graphics\\button_extractor.png')
 layers_button = resource_path('Graphics\\button_layers.png')
 
 class ImageLabel(tk.Label):
@@ -213,7 +213,7 @@ class HomePage(ttk.Frame):
         button4.image = shp_btn
         button4.grid(row=2,column=1,padx=15, pady=15)
         
-        button3=ttk.Button(self.midframe,text='HyperSpec Extractor',image=spc_btn,tooltip='Tool for extracting data from Hyperspectral sensors',command=lambda: controller.show_frame(HyperSpecExtractor),compound='top')
+        button3=ttk.Button(self.midframe,text='Data Extractor',image=spc_btn,tooltip='Tool for extracting statstics from spatial datasets',command=lambda: controller.show_frame(HyperSpecExtractor),compound='top')
         button3.image = spc_btn
         button3.grid(row=2,column=2,padx=15, pady=15)
        
@@ -698,7 +698,7 @@ class HyperSpecExtractor(ttk.Frame):
         win_y = self.winfo_rooty()+150
         window = tk.Toplevel()
         window.geometry(f'+{win_x}+{win_y}')
-        window.title('HyperSpec Extractor - Help')
+        window.title('UAV Data Extractor - Help')
 
         label = ImageLabel(window)
         label.pack(padx=10,pady=10)
@@ -707,29 +707,29 @@ class HyperSpecExtractor(ttk.Frame):
         button_close = ttk.Button(window, text="Close", command=window.destroy)
         button_close.pack(fill='x')
         
-    def get_vnir(self):
-        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'VNIR')
-        self.vnir.set([a for a in files]) 
-        self.vnir_short.set([os.path.basename(b)+' ' for b in files])
+    def get_data(self):
+        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'Source File')
+        self.data.set([a for a in files]) 
+        self.data_short.set([os.path.basename(b)+' ' for b in files])
         if os.path.isfile(files[0]):
-            self.button5=ttk.Button(self.midframe,text='VNIR Output file (.csv)',command=lambda: self.get_outfilename('vnir'),tooltip='Output CSV path.',width=20)
+            self.button5=ttk.Button(self.midframe,text='Results Output file (.csv)',command=lambda: self.get_outfilename(),tooltip='Output CSV path.',width=20)
             self.button5.grid(row=4,column=1,pady=10)
-            self.entry4=ttk.Entry(self.midframe,textvariable=self.out_vnir,width=75)
+            self.entry4=ttk.Entry(self.midframe,textvariable=self.out_file,width=75)
             self.entry4.grid(row=4,column=2,columnspan=2,padx=5)
-            self.get_outfilename('vnir')
+            self.get_outfilename()
         return(self.button5)
       
-    def get_swir(self):
-        files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'SWIR')
-        self.swir.set(files)
-        self.swir_short.set([os.path.basename(b)+' ' for b in files])
-        if os.path.isfile(files[0]):
-            self.button6=ttk.Button(self.midframe,text='SWIR Output file (.csv)',command=lambda: self.get_outfilename('swir'),tooltip='Output CSV path.',width=20)
-            self.button6.grid(row=6,column=1,pady=10)
-            self.entry5=ttk.Entry(self.midframe,textvariable=self.out_swir,width=75)
-            self.entry5.grid(row=6,column=2,columnspan=2,padx=5) 
-            self.get_outfilename('swir')
-        return(self.button6)
+    # def get_swir(self):
+    #     files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'SWIR')
+    #     self.swir.set(files)
+    #     self.swir_short.set([os.path.basename(b)+' ' for b in files])
+    #     if os.path.isfile(files[0]):
+    #         self.button6=ttk.Button(self.midframe,text='SWIR Output file (.csv)',command=lambda: self.get_outfilename('swir'),tooltip='Output CSV path.',width=20)
+    #         self.button6.grid(row=6,column=1,pady=10)
+    #         self.entry5=ttk.Entry(self.midframe,textvariable=self.out_swir,width=75)
+    #         self.entry5.grid(row=6,column=2,columnspan=2,padx=5) 
+    #         self.get_outfilename('swir')
+    #     return(self.button6)
         
     def get_shapefile(self):
         folder=tk.filedialog.askopenfilename(initialdir = "/",title = 'Shapefile',filetypes=(("geojson","*.geojson"),("all files","*.*")))
@@ -746,15 +746,15 @@ class HyperSpecExtractor(ttk.Frame):
                     if a.instate(['selected']) == True:
                         a.invoke()
                     
-    def get_outfilename(self,sensor):
+    def get_outfilename(self):
         folder=tk.filedialog.asksaveasfilename(initialdir = os.path.abspath(os.path.join(self.shapefile.get(),'../')),title = 'Output file',filetypes=(("csv","*.csv"),("all files","*.*")))
         if '.csv'  not in folder:
             folder += '.csv'
-            
-        if sensor.lower() == 'swir':
-            self.out_swir.set(folder)
-        elif sensor.lower() == 'vnir':
-            self.out_vnir.set(folder)
+        self.out_file.set(folder)    
+        # if sensor.lower() == 'swir':
+        #     self.out_swir.set(folder)
+        # elif sensor.lower() == 'vnir':
+        #     self.out_vnir.set(folder)
         self._toggle_state('normal')
     
     def monitor(self, thread):
@@ -767,7 +767,7 @@ class HyperSpecExtractor(ttk.Frame):
             self._toggle_state('enabled')
         
     def run(self):
-        if self.out_vnir.get() == '' and self.out_swir.get() == '':
+        if self.out_file.get() == '' and self.out_swir.get() == '':
             tk.messagebox.showinfo("Select Output file", "Please define an output file name and location")
         else:
             all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount,self.checkPrcnt99,self.checkPrcnt90]
@@ -785,9 +785,11 @@ class HyperSpecExtractor(ttk.Frame):
                     samples.append({'custom':self.customPrcnt.get()})
                 
             try:
-                variables = {'outfile_vnir':self.out_vnir.get(),'outfile_swir':self.out_swir.get(),'shapefile':self.shapefile.get(),'samples':samples}
-                layers = {'VNIR':self.vnir.get(),'SWIR':self.swir.get()}
+                variables = {'outfile':self.out_file.get(),'shapefile':self.shapefile.get(),'samples':samples}
+                layers = {'inFiles':self.data.get()}
                 gc.collect()
+                print(variables)
+                print(layers)
                 thread_1 = threading.Thread(target=hyperspec_master, args=(variables,layers))
                 thread_1.setDaemon(True)
                 thread_1.start()
@@ -802,9 +804,9 @@ class HyperSpecExtractor(ttk.Frame):
     def _toggle_state(self, state):
         state = state if state in ('normal', 'disabled') else 'normal'
         try:
-            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button6, self.button8,self.button9,self.button10)
+            widgets = (self.button1, self.button2, self.button4, self.button5, self.button8,self.button9,self.button10)
         except:
-            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button8,self.button9,self.button10)
+            widgets = (self.button1, self.button2, self.button4, self.button5, self.button8,self.button9,self.button10)
         for widget in widgets:
             widget.configure(state=state)
     def __init__(self,parent,controller):
@@ -821,20 +823,20 @@ class HyperSpecExtractor(ttk.Frame):
         self.btmframe.grid(row=2)
 
          #---VARIABLES---#
-        self.vnir=tk.StringVar()
-        self.vnir.set('')
-        self.vnir_short=tk.StringVar()
-        self.vnir_short.set('')        
-        self.swir=tk.StringVar()
-        self.swir.set('')
-        self.swir_short=tk.StringVar()
-        self.swir_short.set('')          
+        self.data=tk.StringVar()
+        self.data.set('')
+        self.data_short=tk.StringVar()
+        self.data_short.set('')        
+        # self.swir=tk.StringVar()
+        # self.swir.set('')
+        # self.swir_short=tk.StringVar()
+        # self.swir_short.set('')          
         self.shapefile=tk.StringVar()
         self.shapefile.set('')
-        self.out_vnir=tk.StringVar()
-        self.out_vnir.set('')
-        self.out_swir=tk.StringVar()
-        self.out_swir.set('')
+        self.out_file=tk.StringVar()
+        self.out_file.set('')
+        # self.out_swir=tk.StringVar()
+        # self.out_swir.set('')
         self.xmean = tk.IntVar()
         self.xmedian = tk.IntVar()
         self.xstdev = tk.IntVar()
@@ -847,18 +849,18 @@ class HyperSpecExtractor(ttk.Frame):
         hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
         ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
 
-        self.label=tk.Label(self.topframe,text='Hyperspectral Data Extractor',font=Large_Font)
+        self.label=tk.Label(self.topframe,text='UAV Data Extractor',font=Large_Font)
         self.label.grid(row=0,column=2,padx=10)
         
-        self.label=tk.Label(self.topframe,text='Extract mean spectra from hyperspectral data and plot polygons.\n \n Hover over inputs/outputs for more info.',font=Norm_Font)
+        self.label=tk.Label(self.topframe,text='Extract and statistically sample areas of interest from spatial data.\n \n Hover over inputs/outputs for more info.',font=Norm_Font)
         self.label.grid(row=1,column=2,padx=10)
 
         self.button1=ttk.Button(self.midframe,text='Shapefile (.geojson)',command=self.get_shapefile,tooltip='GeoJSON file containing Area of Interest Polygons',width=20)
         self.button1.grid(row=2,column=1,pady=10)
-        self.button2=ttk.Button(self.midframe,text='VNIR',command=self.get_vnir,tooltip='VNIR binary file from sensor (not .hdr!)',width=20)
+        self.button2=ttk.Button(self.midframe,text='Input File',command=self.get_data,tooltip='Source file from which data will be extracted',width=20)
         self.button2.grid(row=3,column=1,pady=10)
-        self.button3=ttk.Button(self.midframe,text='SWIR',command=self.get_swir,tooltip='SWIR binary file from sensor (not .hdr!)',width=20)
-        self.button3.grid(row=5,column=1,pady=10)
+        # self.button3=ttk.Button(self.midframe,text='SWIR',command=self.get_swir,tooltip='SWIR binary file from sensor (not .hdr!)',width=20)
+        # self.button3.grid(row=5,column=1,pady=10)
         self.button4=ttk.Button(self.midframe,text='Run',command=self.run,width=15)
         self.button4.configure(state='disabled')
         self.button4.grid(row=11,column=2,pady=10,padx=75)
@@ -872,11 +874,11 @@ class HyperSpecExtractor(ttk.Frame):
         self.checkStdev=ttk.Checkbutton(self.checkframe,text='StDev',variable=self.xstdev,onvalue='StDev')
         self.checkStdev.grid(row=1,column=2)
         self.checkCount=ttk.Checkbutton(self.checkframe,text='Count',variable=self.xcount,onvalue='Count')
-        self.checkCount.grid(row=2,column=3)
+        self.checkCount.grid(row=2,column=1)
         self.checkPrcnt99=ttk.Checkbutton(self.checkframe,text='99th%',variable=self.xprcnt99,onvalue='99th%')
-        self.checkPrcnt99.grid(row=2,column=1)
+        self.checkPrcnt99.grid(row=2,column=2)
         self.checkPrcnt90=ttk.Checkbutton(self.checkframe,text='90th%',variable=self.xprcnt90,onvalue='90th%')
-        self.checkPrcnt90.grid(row=2,column=2)
+        self.checkPrcnt90.grid(row=2,column=3)
         self.checkAll=ttk.Checkbutton(self.checkframe,text='All',command=self.checkall,variable=self.xall)
         self.checkAll.grid(row=3,column=2)
         self.checkPrcntC=ttk.Checkbutton(self.checkframe,text='Custom Percentile (0-100)',variable=self.xprcntcstm,onvalue='Cstm%')
@@ -897,10 +899,10 @@ class HyperSpecExtractor(ttk.Frame):
           #---ENTRIES---#
         self.entry1=ttk.Entry(self.midframe,textvariable=self.shapefile,width=75)
         self.entry1.grid(row=2,column=2,columnspan=2,padx=5)
-        self.entry2=ttk.Entry(self.midframe,textvariable=self.vnir_short,width=75)
+        self.entry2=ttk.Entry(self.midframe,textvariable=self.data_short,width=75)
         self.entry2.grid(row=3,column=2,columnspan=2,padx=5)
-        self.entry3=ttk.Entry(self.midframe,textvariable=self.swir_short,width=75)
-        self.entry3.grid(row=5,column=2,columnspan=2,padx=5)
+        # self.entry3=ttk.Entry(self.midframe,textvariable=self.swir_short,width=75)
+        # self.entry3.grid(row=5,column=2,columnspan=2,padx=5)
 
 class OrthoMerging(ttk.Frame):
     def popup_window(self):
