@@ -38,7 +38,10 @@ def overlaps_flightline(flightline, shapefiles):
         return round(area_covered)
 
     with rasterio.open(flightline) as img_rstr:
-        bnd_rstr = img_rstr.read(int(img_rstr.count/2))
+        if img_rstr.count > 4:
+            bnd_rstr = img_rstr.read(int(img_rstr.count/2))
+        else:
+            bnd_rstr = img_rstr.read(1)
         rstr_crs = img_rstr.crs
         
     bnd_rstr[bnd_rstr>0]=1
@@ -64,7 +67,7 @@ def overlaps_flightline(flightline, shapefiles):
 
     return df
 
-def extract_hyperspec(datafile, shapefiles,samples):
+def extract_hyperspec(datafile,shapefiles,samples,bandnames):
     '''
     1) Isolate polygons which cover the same area as datafile.
     
@@ -89,10 +92,13 @@ def extract_hyperspec(datafile, shapefiles,samples):
     '''
     plots = overlaps_flightline(datafile, shapefiles)
     custom_header = ''
-    
+    print('1')
     with rasterio.open(datafile) as img_rstr:
-        bands = img_rstr.descriptions    
-        
+        if any([a is None for a in img_rstr.descriptions]):
+            bands = tuple(bandnames)
+        else:
+            bands = img_rstr.descriptions    
+        print(bands)
         Sampling = samples.copy()
         if type(samples[-1]) == dict:
             custom_header = samples[-1].get('custom')+'th%'
@@ -107,7 +113,12 @@ def extract_hyperspec(datafile, shapefiles,samples):
             window = img_rstr.window(*plots[plots['plot_id']==shp].bounds.iloc[0])
             shapes = ((geom,value) for geom, value in zip(plots[plots['plot_id']==shp].geometry, plots[plots['plot_id']==shp].plot_id))
 
-            rows,cols = img_rstr.read(int(img_rstr.count/2), window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform),boundless=True).shape
+            
+            if img_rstr.count > 4:
+                rows,cols = img_rstr.read(int(img_rstr.count/2), window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform),boundless=True).shape
+            else:
+                rows,cols = img_rstr.read(1, window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform),boundless=True).shape
+            # rows,cols = img_rstr.read(int(img_rstr.count/2), window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform),boundless=True).shape
             result = rasterize(shapes=shapes,out_shape=(rows,cols),transform=img_rstr.window_transform(window))
             result_3d = np.repeat(result[np.newaxis,...],(img_rstr.count),0)        
             array = img_rstr.read(window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform))
@@ -161,20 +172,23 @@ def hyperspec_master(variables,layers):
             print ('no '+ layer)
         else:
             orthos.append(layer)            
-    print(orthos)
+    # print(orthos)
 
     try:
         results = []
         files = [a for a in re.split("'|,",layers['inFiles']) if os.path.isfile(a)]
         for file in files:
-            print(file)
-            df = extract_hyperspec(file,variables['shapefile'],variables['samples'])
+            print(file+'_1')
+            df = extract_hyperspec(file,variables['shapefile'],variables['samples'],variables['bandnames'])
             print(f'{file} processed')
             results.append(df)
         
         results_all = pd.concat(results)
         results_all.sort_index().to_csv(variables['outfile'],index_label=['Plot_id','Area','SourceFile'])
-    
+
+        if any(results_all.columns.str.contains('Height')):
+            df.loc[:,df.columns.str.contains('Height')] = df.loc[:,df.columns.str.contains('Height')] * 100
+
     except Exception as e:
         print(e)
         return

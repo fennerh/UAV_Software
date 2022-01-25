@@ -12,7 +12,7 @@ import os, shutil
 
 ##Assumes geojson has been produced with geojson tool, and plot_id provides the plot number.##
 
-def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath):
+def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
     '''
     Merge orthomosaics into single file. LZW compression applied with 2nd predictor.
 
@@ -31,7 +31,8 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath):
     outPath : str
         File path for output file.
     '''
-    print(outPath)
+    # print(outPath)
+    # print(inOther)
     disk = os.path.split(outPath)[0]
     total, used, free = shutil.disk_usage(disk)
 
@@ -39,29 +40,37 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath):
     print("Used: %d GiB" % (used // (2**30)))
     print("Free: %d GiB" % (free // (2**30)))
 
+    outPathT = os.path.splitext(outPath)[0]+'_temp.tif'
+
     if (free // (2**30)) < 20:
         print('Not enough free disk space, will need >20gb temporarily for this bad boy')
     else:
-        bands = ['Blue','Green','Red','NIR','NDVI']
+        bands = bandNames      
         
         with rasterio.open(inRGB) as dest:
-            with rasterio.open(inNIR) as src:
-                
-                profile = dest.meta.copy()
-                print(profile)
+            profile = dest.meta.copy()
+            # print(profile)
+            # datas = [dest.read(1),dest.read(2),dest.read(3)]
+            datas = [dest.read(a+1) for a in range(0,dest.count)]
 
-                destiny = np.zeros(dest.shape,np.float32)
+            if inNIR != '':
+                with rasterio.open(inNIR) as src:
+                    
+                    destiny = np.zeros(dest.shape,np.float32)
+                
+                    warp.reproject(source=src.read(1),
+                                destination=destiny,
+                                src_transform=src.transform,
+                                src_crs=src.crs,
+                                dst_transform=dest.transform,
+                                dst_crs=dest.crs,
+                                resampling=rasterio.warp.Resampling.nearest)
             
-                warp.reproject(source=src.read(1),
-                            destination=destiny,
-                            src_transform=src.transform,
-                            src_crs=src.crs,
-                            dst_transform=dest.transform,
-                            dst_crs=dest.crs,
-                            resampling=rasterio.warp.Resampling.nearest)
-        
-                ndvi = (destiny - dest.read(1))/(destiny + dest.read(1))
-                datas = [dest.read(3),dest.read(2),dest.read(1),destiny,ndvi]
+                    if any([i for i, s in enumerate(['NIR', 'Alpha', 'Bravo']) if 'red' in s.lower()]):
+                        index = [i for i, s in enumerate(['NIR', 'Alpha', 'Bravo']) if 'red' in s.lower()]
+                        ndvi = (destiny - dest.read(index+1))/(destiny + dest.read(index+1))
+                        datas.extend([destiny,ndvi])
+                        bands.extend('NDVI')
 
             if inDSM != '' and inDEM != '':
                 with rasterio.open(inDSM) as DSM:
@@ -89,9 +98,23 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath):
                         norm_DEM = destiny_DEM - destiny_DSM
                 datas.append(norm_DEM)
                 bands.append('nDEM')
+            
+            if inDSM != '' and inDEM == '':
+                with rasterio.open(inDSM) as DSM:
+                    destiny_DSM = np.zeros(dest.shape,np.float32)
+                    warp.reproject(source=DSM.read(1),
+                            destination=destiny_DSM,
+                            src_transform=DSM.transform,
+                            src_crs=DSM.crs,
+                            dst_transform=dest.transform,
+                            dst_crs=dest.crs,
+                            resampling=rasterio.warp.Resampling.nearest)
+                datas.append(destiny_DSM)
+                bands.append('DSM')
 
-            if inOther != '':
-                with rasterio.open(inOther[1]   ) as other:
+            if inOther[1] != '':
+                print(inOther)
+                with rasterio.open(inOther[1]) as other:
                     destiny_other = np.zeros(dest.shape,np.float32)
 
                     warp.reproject(source=other.read(1),
@@ -104,10 +127,9 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath):
 
                 datas.append(destiny_other)
                 bands.append(inOther[0])
-
-
-
-        with rasterio.open(outPath,'w',**profile,num_threads='all_cpus') as dst:       
+        profile.update(count=len(datas))
+        print(bands)
+        with rasterio.open(outPathT,'w',**profile,num_threads='all_cpus') as dst:       
             for index, value in enumerate(datas):
                 print(bands[index], value.mean())
                 dst.write_band(index+1,value)
@@ -126,7 +148,6 @@ if __name__ == "__main__":
     outPathT = r'D:\SMs_ortho_LZW_temp.tif'
 
     orthoMerge(inRGB, inNIR, outPath)
-
 
 #%% Compression Test results:
 """

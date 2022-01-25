@@ -414,7 +414,7 @@ class batchcalibrator(ttk.Frame):
         
         Tec5 file = .xlsx file containing Tec5 irradiance data from data capture flight
         
-        Average Irradiance = Select to use single meaned irradiance value for relfectance corrections
+        Average Irradiance = Select to use single meaned irradiance value for reflectance corrections
         
         Vignetting Models = Destination folder for band vignetting models produced during processing
         
@@ -706,11 +706,45 @@ class HyperSpecExtractor(ttk.Frame):
 
         button_close = ttk.Button(window, text="Close", command=window.destroy)
         button_close.pack(fill='x')
-        
+
+    def checkBands(self,window,file):
+        bands = []
+        def chkchk(bands, window):
+            if all([b.get() != '' for b in bands]):
+                self.bandnames.extend([bands[a].get() for a in range(0,len(bands))])
+                window.destroy()
+            else:
+                tk.messagebox.showerror("Error", "Band Name missing")
+                window.lift()
+
+        with rasterio.open(file) as f:
+            if any([a is None for a in f.descriptions]):
+                window.title('UAV Data Extractor - Help')
+                self.label = ttk.Label(window,text='Unknown bands, please provide band names')
+                self.label.grid(row=1,column=1,columnspan=2)
+                for a in range(1,f.count+1):
+                    bands.append(tk.StringVar())
+                    self.bndNM = ttk.Combobox(window,width=10, textvariable=bands[a-1])
+                    self.bndNM.grid(row=a+1,column=2)
+                    self.bnd = ttk.Label(window,text=f'Band {a}:')
+                    self.bnd.grid(row=a+1,column=1)
+                self.button_sub = ttk.Button(window, text="Submit", width=20, command=lambda: chkchk(bands, window))
+                self.button_sub.grid(row=a+2,column=1,columnspan=2)
+            
     def get_data(self):
         files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'Source File')
         self.data.set([a for a in files]) 
         self.data_short.set([os.path.basename(b)+' ' for b in files])
+        for a in files:
+            with rasterio.open(a) as b:
+                if any([a is None for a in b.descriptions]):
+                    win_x = self.winfo_rootx()+500
+                    win_y = self.winfo_rooty()+150
+                    pop = tk.Toplevel()
+                    pop.geometry(f'+{win_x}+{win_y}')
+                    pop.title('UAV Data Extractor - Help')
+                    self.checkBands(pop,a)
+                    self.wait_window(pop)
         if os.path.isfile(files[0]):
             self.button5=ttk.Button(self.midframe,text='Results Output file (.csv)',command=lambda: self.get_outfilename(),tooltip='Output CSV path.',width=20)
             self.button5.grid(row=4,column=1,pady=10)
@@ -718,18 +752,6 @@ class HyperSpecExtractor(ttk.Frame):
             self.entry4.grid(row=4,column=2,columnspan=2,padx=5)
             self.get_outfilename()
         return(self.button5)
-      
-    # def get_swir(self):
-    #     files=tk.filedialog.askopenfilenames(initialdir = "/",title = 'SWIR')
-    #     self.swir.set(files)
-    #     self.swir_short.set([os.path.basename(b)+' ' for b in files])
-    #     if os.path.isfile(files[0]):
-    #         self.button6=ttk.Button(self.midframe,text='SWIR Output file (.csv)',command=lambda: self.get_outfilename('swir'),tooltip='Output CSV path.',width=20)
-    #         self.button6.grid(row=6,column=1,pady=10)
-    #         self.entry5=ttk.Entry(self.midframe,textvariable=self.out_swir,width=75)
-    #         self.entry5.grid(row=6,column=2,columnspan=2,padx=5) 
-    #         self.get_outfilename('swir')
-    #     return(self.button6)
         
     def get_shapefile(self):
         folder=tk.filedialog.askopenfilename(initialdir = "/",title = 'Shapefile',filetypes=(("geojson","*.geojson"),("all files","*.*")))
@@ -767,7 +789,7 @@ class HyperSpecExtractor(ttk.Frame):
             self._toggle_state('enabled')
         
     def run(self):
-        if self.out_file.get() == '' and self.out_swir.get() == '':
+        if self.out_file.get() == '.csv':
             tk.messagebox.showinfo("Select Output file", "Please define an output file name and location")
         else:
             all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount,self.checkPrcnt99,self.checkPrcnt90]
@@ -783,13 +805,14 @@ class HyperSpecExtractor(ttk.Frame):
                     return
                 else:
                     samples.append({'custom':self.customPrcnt.get()})
-                
+            if not samples:  
+                tk.messagebox.showinfo("Select Samples", "No samples selected") 
+                self._toggle_state('normal')
+                return
             try:
-                variables = {'outfile':self.out_file.get(),'shapefile':self.shapefile.get(),'samples':samples}
+                variables = {'outfile':self.out_file.get(),'shapefile':self.shapefile.get(),'samples':samples,'bandnames':self.bandnames}
                 layers = {'inFiles':self.data.get()}
                 gc.collect()
-                print(variables)
-                print(layers)
                 thread_1 = threading.Thread(target=hyperspec_master, args=(variables,layers))
                 thread_1.setDaemon(True)
                 thread_1.start()
@@ -823,6 +846,7 @@ class HyperSpecExtractor(ttk.Frame):
         self.btmframe.grid(row=2)
 
          #---VARIABLES---#
+        self.bandnames = []
         self.data=tk.StringVar()
         self.data.set('')
         self.data_short=tk.StringVar()
@@ -922,27 +946,65 @@ class OrthoMerging(ttk.Frame):
 
         button_close = ttk.Button(window, text="Close", command=window.destroy)
         button_close.pack(fill='x')
+
+    def checkBands(self,file,pop):
+        bands = []
+        def chkchk(bands, window):
+            if all([b.get() != '' for b in bands]):
+                self.bandnames.set(self.bandnames.get() + ', '.join(bands[a].get() for a in range(0,len(bands))))
+                # str([bands[a].get() for a in range(0,len(bands))]))
+                # self.label3.config(text=self.bandnames.get())
+                print(self.bandnames.get())
+                window.destroy()
+            else:
+                tk.messagebox.showerror("Error", "Band Name missing")
+                window.lift()
+        win_x = self.winfo_rootx()+500
+        win_y = self.winfo_rooty()+150
+        # pop = tk.Toplevel()
         
+        with rasterio.open(file) as f:
+            if any([a is None for a in f.descriptions]):
+                pop.geometry(f'+{win_x}+{win_y}')
+                pop.title('UAV Data Extractor - Help')
+                self.label = ttk.Label(pop,text='Unknown bands, please provide band names')
+                self.label.grid(row=1,column=1,columnspan=2)
+                for a in range(1,f.count+1):
+                    bands.append(tk.StringVar())
+                    self.bndNM = AutocompleteCombobox(pop,width=10, textvariable=bands[a-1], completevalues=self.band_opts)
+                    self.bndNM.grid(row=a+1,column=2)
+                    self.bnd = ttk.Label(pop,text=f'Band {a}:')
+                    self.bnd.grid(row=a+1,column=1)
+                self.button_sub = ttk.Button(pop, text="Submit", width=20, command=lambda: chkchk(bands, pop))
+                self.button_sub.grid(row=a+2,column=1,columnspan=2)
+            else:
+                self.bandnames.set(self.bandnames.get() + ', '.join(f.descriptions[a] for a in range(0,f.count-1)))
+                pop.destroy()
+
     def get_rgb(self):
         files=tk.filedialog.askopenfilename(initialdir = "/",title = 'RGB',filetype=(("tif","*.tif"),("all files","*.*")))
-        self.rgb.set([a for a in files]) 
-        self.rgb_short.set([os.path.basename(b)+' ' for b in files])
+        if files != '':
+            pop = tk.Toplevel()
+            self.checkBands(files,pop)
+            self.wait_window(pop)
+            self.rgb.set(files) 
+            self.rgb_short.set(os.path.basename(files))
         # return(self.button5)
       
     def get_nir(self):
         files=tk.filedialog.askopenfilename(initialdir = "/",title = 'NIR',filetypes=(("tif","*.tif"),("all files","*.*")))
         self.nir.set(files)
-        self.nir_short.set([os.path.basename(b)+' ' for b in files])
+        self.nir_short.set(os.path.basename(files))
     
     def get_DEM(self):
         files=tk.filedialog.askopenfilename(initialdir = "/",title = 'Bare Ground DEM',filetypes=(("tif","*.tif"),("all files","*.*")))
         self.DEM.set(files)
-        self.DEM_short.set([os.path.basename(b)+' ' for b in files])
+        self.DEM_short.set(os.path.basename(files))
 
     def get_DSM(self):
         files=tk.filedialog.askopenfilename(initialdir = "/",title = 'DSM',filetypes=(("tif","*.tif"),("all files","*.*")))
         self.DSM.set(files)
-        self.DSM_short.set([os.path.basename(b)+' ' for b in files])
+        self.DSM_short.set(os.path.basename(files))
 
     def get_Other(self):
         files=tk.filedialog.askopenfilename(initialdir = "/",title = 'Other File',filetypes=(("tif","*.tif"),("all files","*.*")))
@@ -974,7 +1036,7 @@ class OrthoMerging(ttk.Frame):
             try:
                 others = (self.other.get(),self.other_file.get())
                 gc.collect()
-                thread_1 = threading.Thread(target=orthoMerge, args=(self.rgb.get(),self.nir.get(),self.DEM.get(),self.DSM.get(),others,self.out_file.get()))
+                thread_1 = threading.Thread(target=orthoMerge, args=(self.rgb.get(),self.nir.get(),self.DEM.get(),self.DSM.get(),others,self.out_file.get(),self.bandnames.get()))
                 thread_1.setDaemon(True)
                 thread_1.start()
                 
@@ -988,11 +1050,19 @@ class OrthoMerging(ttk.Frame):
     def _toggle_state(self, state):
         state = state if state in ('normal', 'disabled') else 'normal'
         try:
-            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button6, self.button7)
+            widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button6, self.button7, self.button8,self.button9,self.button10)
         except:
             widgets = (self.button1, self.button2, self.button3, self.button4, self.button5, self.button8,self.button9,self.button10)
         for widget in widgets:
             widget.configure(state=state)
+
+    def clear(self):
+        a = [b for b in self.bandnames.get().split(', ')]
+        print(a)
+        print(self.bandnames.get())
+        self.bandnames.set('')
+        # self.entry7.config(text=self.bandnames.get())
+        
     def __init__(self,parent,controller):
         tk.Frame.__init__(self,parent)
         self.grid_rowconfigure(1, weight=1)
@@ -1007,6 +1077,7 @@ class OrthoMerging(ttk.Frame):
         self.btmframe.grid(row=2)
 
          #---VARIABLES---#
+        self.bandnames = tk.StringVar()
         self.rgb=tk.StringVar()
         self.rgb.set('')
         self.rgb_short=tk.StringVar()
@@ -1034,11 +1105,12 @@ class OrthoMerging(ttk.Frame):
         hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
         ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
 
-        self.label=tk.Label(self.topframe,text='Orthophoto Merger',font=Large_Font)
-        self.label.grid(row=0,column=2,padx=10)
-        
-        self.label=tk.Label(self.topframe,text='Merge orthophotos into a single multilayer orthophoto, compressed using LZW(2).\n \n Hover over inputs/outputs for more info.\n \n DEM = Bare Ground; DSM = the one with crops in.',font=Norm_Font)
-        self.label.grid(row=1,column=2,padx=10)
+        self.band_opts = ['Red','Green','Blue','Alpha','NIR','Thermal']
+
+        self.label1=tk.Label(self.topframe,text='Orthophoto Merger',font=Large_Font)
+        self.label1.grid(row=0,column=2,padx=10)        
+        self.label2=tk.Label(self.topframe,text='Merge orthophotos into a single multilayer orthophoto, compressed using LZW(2).\n \n Hover over inputs/outputs for more info.\n \n DEM = Bare Ground; DSM = the one with crops in.',font=Norm_Font)
+        self.label2.grid(row=1,column=2,padx=10)
 
         self.button1=ttk.Button(self.midframe,text='RGB',command=self.get_rgb,tooltip='RGB orthomosaic',width=20)
         self.button1.grid(row=2,column=1,pady=10)
@@ -1055,16 +1127,18 @@ class OrthoMerging(ttk.Frame):
         self.button7=ttk.Button(self.midframe,text='Run',command=self.run,width=15)
         self.button7.configure(state='disabled')
         self.button7.grid(row=11,column=2,pady=10,padx=75)
+        self.button8=ttk.Button(self.midframe, text='clear',command=self.clear,tooltip='Clear Band Names',width=20)
+        self.button8.grid(row=8,column=1,pady=10)
 
-        self.button8=ttk.Button(self.btmframe,image=hme_btn,text='Home',tooltip='Go Home (your drunk)',command=lambda: controller.show_frame(HomePage),compound="top")
-        self.button8.image=hme_btn 
-        self.button8.grid(row=1,column=1,padx=5,pady=10)
-        self.button9=ttk.Button(self.btmframe,image=info_btn,text='Help',command=self.popup_window,tooltip='Press for more help',compound="top")
-        self.button9.image=info_btn  
-        self.button9.grid(row=1,column=2,padx=5,pady=10)
-        self.button10=ttk.Button(self.btmframe,text='Quit',image=ext_btn,tooltip='Quit software and all running processes',command=controller.enditall,compound="top")
-        self.button10.image=ext_btn 
-        self.button10.grid(row=1,column=3,padx=5,pady=10)
+        self.button9=ttk.Button(self.btmframe,image=hme_btn,text='Home',tooltip='Go Home (your drunk)',command=lambda: controller.show_frame(HomePage),compound="top")
+        self.button9.image=hme_btn 
+        self.button9.grid(row=1,column=1,padx=5,pady=10)
+        self.button10=ttk.Button(self.btmframe,image=info_btn,text='Help',command=self.popup_window,tooltip='Press for more help',compound="top")
+        self.button10.image=info_btn  
+        self.button10.grid(row=1,column=2,padx=5,pady=10)
+        self.button11=ttk.Button(self.btmframe,text='Quit',image=ext_btn,tooltip='Quit software and all running processes',command=controller.enditall,compound="top")
+        self.button11.image=ext_btn 
+        self.button11.grid(row=1,column=3,padx=5,pady=10)
 
           #---ENTRIES---#
         self.entry1=ttk.Entry(self.midframe,textvariable=self.rgb_short,width=75)
@@ -1079,6 +1153,8 @@ class OrthoMerging(ttk.Frame):
         self.entry5.grid(row=6,column=2,columnspan=2,padx=5)
         self.entry6=ttk.Entry(self.midframe,textvariable=self.out_file,width=75)
         self.entry6.grid(row=7,column=2,columnspan=2,padx=5)
+        self.entry7=ttk.Entry(self.midframe,textvariable=self.bandnames)
+        self.entry7.grid(row=8,column=2,columnspan=2)
 
 if __name__ == "__main__":
     app=software()
