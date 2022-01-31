@@ -10,6 +10,13 @@ import numpy as np
 from osgeo import gdal
 import os, shutil
 
+def bandCount(inFile):
+    if not inFile:
+        return(0)
+    with rasterio.open(inFile) as file:
+        a = file.count
+        return(a)
+
 ##Assumes geojson has been produced with geojson tool, and plot_id provides the plot number.##
 
 def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
@@ -44,16 +51,30 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
 
     if (free // (2**30)) < 20:
         print('Not enough free disk space, will need >20gb temporarily for this bad boy')
+        return
     else:
-        bands = bandNames      
-        
-        with rasterio.open(inRGB) as dest:
-            profile = dest.meta.copy()
-            # print(profile)
-            # datas = [dest.read(1),dest.read(2),dest.read(3)]
-            datas = [dest.read(a+1) for a in range(0,dest.count)]
+        bands = [a for a in bandNames.split(', ')]
+        print(bands)
 
+    bandCnt = bandCount(inRGB) 
+    bandCnt += (bandCount(inNIR)) + 1
+    bandCnt += bandCount(inDSM)
+    bandCnt += bandCount(inOther[1])
+    print(bandCnt)
+       
+    with rasterio.open(inRGB) as dest:
+        profile = dest.meta.copy()
+        profile.update(count=bandCnt)
+        with rasterio.open(outPathT,'w',**profile,num_threads='all_cpus') as dst:
+            count=0
+            for i in range(0,dest.count):  
+                print(bands[i])
+                dst.write_band(i+1,dest.read(i+1))
+                dst.set_band_description(i+1, bands[i])   
+                count+=1
+            
             if inNIR != '':
+                print('NIR')
                 with rasterio.open(inNIR) as src:
                     
                     destiny = np.zeros(dest.shape,np.float32)
@@ -65,13 +86,17 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
                                 dst_transform=dest.transform,
                                 dst_crs=dest.crs,
                                 resampling=rasterio.warp.Resampling.nearest)
-            
-                    if any([i for i, s in enumerate(['NIR', 'Alpha', 'Bravo']) if 'red' in s.lower()]):
-                        index = [i for i, s in enumerate(['NIR', 'Alpha', 'Bravo']) if 'red' in s.lower()]
-                        ndvi = (destiny - dest.read(index+1))/(destiny + dest.read(index+1))
-                        datas.extend([destiny,ndvi])
-                        bands.extend('NDVI')
-
+                count+=1
+                dst.write_band(count,destiny)
+                dst.set_band_description(count, 'NIR')
+                
+                if any(['RED' == s.upper() for i,s in enumerate(bands)]):
+                    index = [i for i, s in enumerate(bands) if 'RED' in s.upper()]
+                    print('NDVI')
+                    ndvi = (destiny - dest.read(index[0]+1))/(destiny + dest.read(index[0]+1))
+                    dst.write_band(count+1,ndvi)
+                    dst.set_band_description(count+1, 'NDVI')
+            destiny = None
             if inDSM != '' and inDEM != '':
                 with rasterio.open(inDSM) as DSM:
                     with rasterio.open(inDEM) as DEM:
@@ -96,9 +121,12 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
                             resampling=rasterio.warp.Resampling.nearest)
 
                         norm_DEM = destiny_DEM - destiny_DSM
-                datas.append(norm_DEM)
-                bands.append('nDEM')
-            
+                count+=1
+                dst.write_band(count+1,norm_DEM)
+                dst.set_band_description(count+1, 'NIR')
+            destiny_DSM = None
+            destiny_DEM = None
+
             if inDSM != '' and inDEM == '':
                 with rasterio.open(inDSM) as DSM:
                     destiny_DSM = np.zeros(dest.shape,np.float32)
@@ -109,8 +137,10 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
                             dst_transform=dest.transform,
                             dst_crs=dest.crs,
                             resampling=rasterio.warp.Resampling.nearest)
-                datas.append(destiny_DSM)
-                bands.append('DSM')
+                count+=1
+                dst.write_band(count+1,destiny_DSM)
+                dst.set_band_description(count+1, 'DSM')
+            destiny_DSM=None
 
             if inOther[1] != '':
                 print(inOther)
@@ -124,21 +154,14 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
                             dst_transform=dest.transform,
                             dst_crs=dest.crs,
                             resampling=rasterio.warp.Resampling.nearest)
-
-                datas.append(destiny_other)
-                bands.append(inOther[0])
-        profile.update(count=len(datas))
-        print(bands)
-        with rasterio.open(outPathT,'w',**profile,num_threads='all_cpus') as dst:       
-            for index, value in enumerate(datas):
-                print(bands[index], value.mean())
-                dst.write_band(index+1,value)
-                dst.set_band_description(index+1, bands[index])
-        
-        command_lzw_2 = "gdal_translate -of GTiff -co \"COMPRESS=LZW\" -co \"PREDICTOR=2\" -co \"TILED=YES\" -co \"BIGTIFF=YES\" " + outPathT + " " + outPath
-        os.system(command_lzw_2)
-        os.remove(outPathT)
-        print('Done!')
+                count+=1
+                dst.write_band(count+1,destiny_other)
+                dst.set_band_description(count+1,inOther[0])
+            destiny_other=None
+    command_lzw_2 = "gdal_translate -of GTiff -co \"COMPRESS=LZW\" -co \"PREDICTOR=2\" -co \"TILED=YES\" -co \"BIGTIFF=YES\" " + outPathT + " " + outPath
+    os.system(command_lzw_2)
+    os.remove(outPathT)
+    print('Done!')
     
 #%% Test Cell    
 if __name__ == "__main__":

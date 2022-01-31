@@ -992,22 +992,22 @@ class OrthoMerging(ttk.Frame):
         # return(self.button5)
       
     def get_nir(self):
-        files=tk.filedialog.askopenfilename(initialdir = "/",title = 'NIR',filetypes=(("tif","*.tif"),("all files","*.*")))
+        files=tk.filedialog.askopenfilename(initialdir = os.path.dirname(self.rgb.get()),title = 'NIR',filetypes=(("tif","*.tif"),("all files","*.*")))
         self.nir.set(files)
         self.nir_short.set(os.path.basename(files))
     
     def get_DEM(self):
-        files=tk.filedialog.askopenfilename(initialdir = "/",title = 'Bare Ground DEM',filetypes=(("tif","*.tif"),("all files","*.*")))
+        files=tk.filedialog.askopenfilename(initialdir = os.path.dirname(self.rgb.get()),title = 'Bare Ground DEM',filetypes=(("tif","*.tif"),("all files","*.*")))
         self.DEM.set(files)
         self.DEM_short.set(os.path.basename(files))
 
     def get_DSM(self):
-        files=tk.filedialog.askopenfilename(initialdir = "/",title = 'DSM',filetypes=(("tif","*.tif"),("all files","*.*")))
+        files=tk.filedialog.askopenfilename(initialdir = os.path.dirname(self.rgb.get()),title = 'DSM',filetypes=(("tif","*.tif"),("all files","*.*")))
         self.DSM.set(files)
         self.DSM_short.set(os.path.basename(files))
 
     def get_Other(self):
-        files=tk.filedialog.askopenfilename(initialdir = "/",title = 'Other File',filetypes=(("tif","*.tif"),("all files","*.*")))
+        files=tk.filedialog.askopenfilename(initialdir = os.path.dirname(self.rgb.get()),title = 'Other File',filetypes=(("tif","*.tif"),("all files","*.*")))
         other_name=tk.simpledialog.askstring(title='Layer Name',prompt='Provide a name for this layer (e.g. Thermal)')
         self.other_file.set(files)
         self.other.set(other_name)
@@ -1029,11 +1029,14 @@ class OrthoMerging(ttk.Frame):
             self._toggle_state('enabled')
         
     def run(self):
+        if self.rgb.get() == '':
+            tk.messagebox.showinfo("Select RGB file", "Please a RGB or Primary dataset")
         if self.out_file.get() == '':
             tk.messagebox.showinfo("Select Output file", "Please define a file name and location")
         else:
             self._toggle_state('disabled')
             try:
+                print(self.bandnames.get())
                 others = (self.other.get(),self.other_file.get())
                 gc.collect()
                 thread_1 = threading.Thread(target=orthoMerge, args=(self.rgb.get(),self.nir.get(),self.DEM.get(),self.DSM.get(),others,self.out_file.get(),self.bandnames.get()))
@@ -1116,9 +1119,9 @@ class OrthoMerging(ttk.Frame):
         self.button1.grid(row=2,column=1,pady=10)
         self.button2=ttk.Button(self.midframe,text='NIR',command=self.get_nir,tooltip='NIR orthomosaic',width=20)
         self.button2.grid(row=3,column=1,pady=10)
-        self.button3=ttk.Button(self.midframe,text='DEM (BG)',command=self.get_nir,tooltip='Bare Ground DEM',width=20)
+        self.button3=ttk.Button(self.midframe,text='DEM (BG)',command=self.get_DEM,tooltip='Bare Ground DEM',width=20)
         self.button3.grid(row=4,column=1,pady=10)
-        self.button4=ttk.Button(self.midframe,text='DSM',command=self.get_nir,tooltip='Digital Surface Model (with crops!)',width=20)
+        self.button4=ttk.Button(self.midframe,text='DSM',command=self.get_DSM,tooltip='Digital Surface Model (with crops!)',width=20)
         self.button4.grid(row=5,column=1,pady=10)
         self.button5=ttk.Button(self.midframe,text='Other',command=self.get_Other,tooltip='Any other orthomosaic to include (e.g. Thermal)',width=20)
         self.button5.grid(row=6,column=1,pady=10)
@@ -1145,15 +1148,15 @@ class OrthoMerging(ttk.Frame):
         self.entry1.grid(row=2,column=2,columnspan=2,padx=5)
         self.entry2=ttk.Entry(self.midframe,textvariable=self.nir_short,width=75)
         self.entry2.grid(row=3,column=2,columnspan=2,padx=5)
-        self.entry3=ttk.Entry(self.midframe,textvariable=self.DEM,width=75)
+        self.entry3=ttk.Entry(self.midframe,textvariable=self.DEM_short,width=75)
         self.entry3.grid(row=4,column=2,columnspan=2,padx=5)
-        self.entry4=ttk.Entry(self.midframe,textvariable=self.DSM,width=75)
+        self.entry4=ttk.Entry(self.midframe,textvariable=self.DSM_short,width=75)
         self.entry4.grid(row=5,column=2,columnspan=2,padx=5)
         self.entry5=ttk.Entry(self.midframe,textvariable=self.other_file,width=75)
         self.entry5.grid(row=6,column=2,columnspan=2,padx=5)
         self.entry6=ttk.Entry(self.midframe,textvariable=self.out_file,width=75)
         self.entry6.grid(row=7,column=2,columnspan=2,padx=5)
-        self.entry7=ttk.Entry(self.midframe,textvariable=self.bandnames)
+        self.entry7=ttk.Entry(self.midframe,textvariable=self.bandnames,width=75)
         self.entry7.grid(row=8,column=2,columnspan=2)
 
 if __name__ == "__main__":
