@@ -67,7 +67,39 @@ def overlaps_flightline(flightline, shapefiles):
 
     return df
 
-def extract_hyperspec(datafile,shapefiles,samples,bandnames):
+def extract_pixels(inPlot,transform,outFile,bandnames):
+    print(outFile)
+    a =inPlot
+    tform = transform
+
+    # b = np.ma.masked_where(a > 0.0, a)
+    c = np.argwhere(a).tolist()
+
+    x_coord = []
+    y_coord = []
+    z_coord = []
+    for z in c:
+        x, y = tform * tuple([z[1],z[2]])
+        x_coord.append(x)
+        y_coord.append(y)
+        z_coord.append([a[p,z[1],z[2]] for p in range(a.shape[0])])
+
+    df = pd.DataFrame()
+    df = df.assign(X_coord=x_coord,
+                    Y_coord=y_coord,
+                    Pixel_value=z_coord)
+
+    split_df = pd.DataFrame(df['Pixel_value'].tolist())
+    # for i,v in enumerate(split_df.columns):
+    #     split_df.columns = ['Band_{}'.format(i+1) for col_name in split_df.columns]
+    split_df.columns = f'Band_{bandnames}'
+
+    df = pd.concat([df,split_df],axis=1)
+    df = df.drop('Pixel_value',axis=1)
+
+    df.to_csv(outFile)
+
+def extract_hyperspec(datafile,shapefiles,samples,bandnames,PlotV,outFold):
     '''
     1) Isolate polygons which cover the same area as datafile.
     
@@ -92,22 +124,23 @@ def extract_hyperspec(datafile,shapefiles,samples,bandnames):
     '''
     plots = overlaps_flightline(datafile, shapefiles)
     custom_header = ''
-    print('1')
+    
     with rasterio.open(datafile) as img_rstr:
         if any([a is None for a in img_rstr.descriptions]):
             bands = tuple(bandnames)
         else:
             bands = img_rstr.descriptions    
-        print(bands)
+        
         Sampling = samples.copy()
-        if type(samples[-1]) == dict:
+        if not samples:
+            print('No samples')
+        elif type(samples[-1]) == dict:
             custom_header = samples[-1].get('custom')+'th%'
             Sampling[-1] = custom_header
 
         cols = [x.split(' ')[0]+'_'+a for a in Sampling for x in bands]
     
-        df = pd.DataFrame(columns=cols,index=plots.plot_id)
-              
+        df = pd.DataFrame(columns=cols,index=plots.plot_id)   
         for shp in plots.plot_id:
 
             window = img_rstr.window(*plots[plots['plot_id']==shp].bounds.iloc[0])
@@ -124,6 +157,9 @@ def extract_hyperspec(datafile,shapefiles,samples,bandnames):
             array = img_rstr.read(window=from_bounds(*plots[plots['plot_id']==shp].bounds.iloc[0], transform=img_rstr.transform))
             ary = np.ma.masked_where(result_3d!=shp,array)
             ary = np.ma.masked_where(ary==0,ary)
+
+            if PlotV == True:
+                extract_pixels(ary,img_rstr.transform,outFold+f'/Plot_{shp}.csv',bandnames)
             
             if 'Mean' in Sampling:
                 df.loc[shp, df.columns.str.contains('_Mean')] = np.ma.mean(ary,axis=(1,2))
@@ -172,14 +208,12 @@ def hyperspec_master(variables,layers):
             print ('no '+ layer)
         else:
             orthos.append(layer)            
-    # print(orthos)
 
     try:
         results = []
         files = [a for a in re.split("'|,",layers['inFiles']) if os.path.isfile(a)]
         for file in files:
-            print(file+'_1')
-            df = extract_hyperspec(file,variables['shapefile'],variables['samples'],variables['bandnames'])
+            df = extract_hyperspec(file,variables['shapefile'],variables['samples'],variables['bandnames'],variables['PlotValues'],variables['outFolder'])
             print(f'{file} processed')
             results.append(df)
         
@@ -192,36 +226,6 @@ def hyperspec_master(variables,layers):
     except Exception as e:
         print(e)
         return
-
-    # if 'VNIR' in orthos:
-    #     try:
-    #         vnir=[]
-    #         files = [a for a in re.split("'|,",layers['VNIR']) if os.path.isfile(a)]
-    #         for file in files:
-    #             df = extract_hyperspec(file, variables['shapefile'],variables['samples'])
-    #             print(f'{file} processed')
-    #             vnir.append(df)
-                
-    #         vnir_all = pd.concat(vnir)
-    #         vnir_all.sort_index().to_csv(variables['outfile_vnir'],index_label=['Plot_id','Area','SourceFile'])
-        
-    #     except Exception as e:
-    #         print(e)
-            
-    # if 'SWIR' in orthos:
-    #     try:
-    #         swir=[]
-    #         files = [a for a in re.split("'|,",layers['SWIR']) if os.path.isfile(a)]
-    #         for file in re.split("'|,",layers['SWIR']):
-    #             if os.path.isfile(file):
-    #                 df = extract_hyperspec(file,variables['shapefile'],variables['samples'])
-    #                 print(f'{file} processed')
-    #                 swir.append(df)
-    
-    #         swir_all = pd.concat(swir)
-    #         swir_all.sort_index().to_csv(variables['outfile_swir'],index_label=['Plot_id','Area','SourceFile'])
-    #     except Exception as e:
-    #         print(e)
     
     print('Saving outputs...')
     print('Done')

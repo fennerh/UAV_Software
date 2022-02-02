@@ -155,13 +155,13 @@ def hyperspec_master(variables,layers):
 
     '''
     orthos=[]
-    
+    print('gere1')
     for layer in layers:
         if layers[layer] == 'blank' or layers[layer] == '':
             print ('no '+ layer)
         else:
             orthos.append(layer)            
-    print(orthos)
+    print('here')
 
 
     if 'VNIR' in orthos:

@@ -13,9 +13,10 @@ import os, shutil
 def bandCount(inFile):
     if not inFile:
         return(0)
-    with rasterio.open(inFile) as file:
-        a = file.count
-        return(a)
+    else:
+        with rasterio.open(inFile) as file:
+            a = file.count
+            return(a)
 
 ##Assumes geojson has been produced with geojson tool, and plot_id provides the plot number.##
 
@@ -56,8 +57,10 @@ def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
         bands = [a for a in bandNames.split(', ')]
         print(bands)
 
-    bandCnt = bandCount(inRGB) 
-    bandCnt += (bandCount(inNIR)) + 1
+    bandCnt = bandCount(inRGB)
+    if bandCount(inNIR) == 2:
+         bandCnt += (bandCount(inNIR))
+    else: bandCnt += (bandCount(inNIR)) + 1
     bandCnt += bandCount(inDSM)
     bandCnt += bandCount(inOther[1])
     print(bandCnt)

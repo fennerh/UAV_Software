@@ -23,7 +23,7 @@ os.environ["GDAL_DATA"] = resource_path('gdal')
 os.environ["PROJ_LIB"] = resource_path('proj')
 os.environ["USE_PATH_FOR_GDAL_PYTHON"] = 'YES'
 os.environ['PATH'] = os.pathsep.join(os.environ['PATH'].split(os.pathsep)[:-1])
-print(os.environ["GDAL_DATA"])
+print(os.environ["PROJ_LIB"])
 
 abspath = os.path.abspath(__file__)
 dname = (os.path.dirname(abspath))
@@ -174,7 +174,12 @@ class HomePage(ttk.Frame):
         label = tk.Label(window, text='''
         Image Calibration Tool: if you want to calibrate raw Sony imagery into reflectances.
         
+        Ortho Merger: if you want to merge multiple spatial rasters together into one file.
+        
         Shapefile Generator: if you want to process experiment shapefiles ready for data extraction.
+
+        Data Extractor: if you want to extract data values from spatial raster datasets.                                
+                         
                          ''',justify='left')
         label.pack(fill='x', padx=50, pady=50)
 
@@ -193,6 +198,9 @@ class HomePage(ttk.Frame):
         self.topframe.grid(row=0)
         self.midframe.grid(row=1)
         self.btmframe.grid(row=2)
+
+        label2 = tk.Label(self.topframe,text='UAV Data Tool: Version 1.1')
+        label2.pack(fill='x')
         
         info_btn = PhotoImage(file=info_button,master=self).subsample(5,5)
         ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
@@ -224,7 +232,6 @@ class HomePage(ttk.Frame):
         button6=ttk.Button(self.btmframe,text='Help',image=info_btn,tooltip='Get additional help',command=self.popup_window,compound='top')
         button6.image=info_btn
         button6.grid(row=1,column=1,padx=5,pady=10)
-
 
 ## Image Calibrator Class: defines the variables for the appearance and function of the Image Calibration Tool.
 class ImageCalibrator(ttk.Frame):
@@ -724,7 +731,7 @@ class HyperSpecExtractor(ttk.Frame):
                 self.label.grid(row=1,column=1,columnspan=2)
                 for a in range(1,f.count+1):
                     bands.append(tk.StringVar())
-                    self.bndNM = ttk.Combobox(window,width=10, textvariable=bands[a-1])
+                    self.bndNM = AutocompleteCombobox(window,width=10, textvariable=bands[a-1], completevalues=self.band_opts)
                     self.bndNM.grid(row=a+1,column=2)
                     self.bnd = ttk.Label(window,text=f'Band {a}:')
                     self.bnd.grid(row=a+1,column=1)
@@ -757,6 +764,26 @@ class HyperSpecExtractor(ttk.Frame):
         folder=tk.filedialog.askopenfilename(initialdir = "/",title = 'Shapefile',filetypes=(("geojson","*.geojson"),("all files","*.*")))
         self.shapefile.set(folder)
 
+    def getplots(self):
+        def getfolder():
+            folder=tk.filedialog.askdirectory(initialdir = '/', title = 'Plot Value Folder')
+            self.outFolder.set(folder)
+        
+        if self.checkPlotVals.instate(['selected']) == True:
+            folder=tk.filedialog.askdirectory(initialdir = '/', title = 'Plot Value Folder')
+            self.outFolder.set(folder)
+            self.plotVals.set(True)
+            self.button6=ttk.Button(self.midframe,text='Pixel Folder',command=lambda: getfolder(),width=20)
+            self.button6.grid(row=11,column=1,pady=10)
+            self.entry6=ttk.Entry(self.midframe,textvariable=self.outFolder,width=75)
+            self.entry6.grid(row=11,column=2,columnspan=2,padx=5)
+        
+        if self.checkPlotVals.instate(['selected']) == False:
+            self.plotVals.set(False)
+            self.button6.grid_forget()
+            self.entry6.grid_forget()
+
+
     def checkall(self):
         all = [self.checkMean,self.checkMedian,self.checkStdev,self.checkCount,self.checkPrcnt99,self.checkPrcnt90]
         if self.checkAll.instate(['selected']) == True:
@@ -773,10 +800,6 @@ class HyperSpecExtractor(ttk.Frame):
         if '.csv'  not in folder:
             folder += '.csv'
         self.out_file.set(folder)    
-        # if sensor.lower() == 'swir':
-        #     self.out_swir.set(folder)
-        # elif sensor.lower() == 'vnir':
-        #     self.out_vnir.set(folder)
         self._toggle_state('normal')
     
     def monitor(self, thread):
@@ -805,12 +828,12 @@ class HyperSpecExtractor(ttk.Frame):
                     return
                 else:
                     samples.append({'custom':self.customPrcnt.get()})
-            if not samples:  
-                tk.messagebox.showinfo("Select Samples", "No samples selected") 
+            if not samples and self.checkPlotVals == False:  
+                tk.messagebox.showinfo("Select Someting", "No outputs selected") 
                 self._toggle_state('normal')
                 return
             try:
-                variables = {'outfile':self.out_file.get(),'shapefile':self.shapefile.get(),'samples':samples,'bandnames':self.bandnames}
+                variables = {'outfile':self.out_file.get(),'shapefile':self.shapefile.get(),'samples':samples,'bandnames':self.bandnames,'PlotValues':self.plotVals.get(),'outFolder':self.outFolder.get()}
                 layers = {'inFiles':self.data.get()}
                 gc.collect()
                 thread_1 = threading.Thread(target=hyperspec_master, args=(variables,layers))
@@ -851,10 +874,10 @@ class HyperSpecExtractor(ttk.Frame):
         self.data.set('')
         self.data_short=tk.StringVar()
         self.data_short.set('')        
-        # self.swir=tk.StringVar()
-        # self.swir.set('')
-        # self.swir_short=tk.StringVar()
-        # self.swir_short.set('')          
+        self.outFolder=tk.StringVar()
+        self.outFolder.set('')
+        self.plotVals=tk.BooleanVar()
+        self.plotVals.set(False) 
         self.shapefile=tk.StringVar()
         self.shapefile.set('')
         self.out_file=tk.StringVar()
@@ -873,9 +896,10 @@ class HyperSpecExtractor(ttk.Frame):
         hme_btn = PhotoImage(file=home_button,master=self).subsample(5,5)
         ext_btn = PhotoImage(file=exit_button,master=self).subsample(5,5)
 
+        self.band_opts = ['Red','Green','Blue','Alpha','NIR','Thermal']
+        
         self.label=tk.Label(self.topframe,text='UAV Data Extractor',font=Large_Font)
         self.label.grid(row=0,column=2,padx=10)
-        
         self.label=tk.Label(self.topframe,text='Extract and statistically sample areas of interest from spatial data.\n \n Hover over inputs/outputs for more info.',font=Norm_Font)
         self.label.grid(row=1,column=2,padx=10)
 
@@ -885,9 +909,9 @@ class HyperSpecExtractor(ttk.Frame):
         self.button2.grid(row=3,column=1,pady=10)
         # self.button3=ttk.Button(self.midframe,text='SWIR',command=self.get_swir,tooltip='SWIR binary file from sensor (not .hdr!)',width=20)
         # self.button3.grid(row=5,column=1,pady=10)
-        self.button4=ttk.Button(self.midframe,text='Run',command=self.run,width=15)
+        self.button4=ttk.Button(self.midframe,text='Run',command=self.run,width=20)
         self.button4.configure(state='disabled')
-        self.button4.grid(row=11,column=2,pady=10,padx=75)
+        self.button4.grid(row=12,column=2,pady=10,padx=75)
 
         self.checkframe=tk.Frame(self.midframe)
         self.checkframe.grid(row=10,column=2)
@@ -909,6 +933,8 @@ class HyperSpecExtractor(ttk.Frame):
         self.checkPrcntC.grid(row=4,column=2)
         self.customPrcnt=ttk.Combobox(self.checkframe,width=5,values=natsorted([str(a) for a in range(0,101)]))
         self.customPrcnt.grid(row=4,column=3)
+        self.checkPlotVals=ttk.Checkbutton(self.checkframe,text='Extract Plot Pixel Values?',command=self.getplots,variable=self.plotVals)
+        self.checkPlotVals.grid(row=5,column=2)
 
         self.button8=ttk.Button(self.btmframe,image=hme_btn,text='Home',tooltip='Go Home (your drunk)',command=lambda: controller.show_frame(HomePage),compound="top")
         self.button8.image=hme_btn 
