@@ -11,36 +11,53 @@ from osgeo import gdal
 import os, shutil
 
 def bandCount(inFile):
+    '''
+    Count number of bands in given raster file
+
+    Parameters
+    ----------
+    inFile : file path
+        Raster file path.
+    
+    Return
+    ---------
+    a : int
+        Number of bands in raster.
+        
+    '''
     if not inFile:
         return(0)
     else:
         with rasterio.open(inFile) as file:
             a = file.count
-            return(a)
+    return(a)
 
 ##Assumes geojson has been produced with geojson tool, and plot_id provides the plot number.##
 
 def orthoMerge(inRGB,inNIR,inDEM,inDSM,inOther,outPath,bandNames):
     '''
-    Merge orthomosaics into single file. LZW compression applied with 2nd predictor.
+    Merge multiple raster datasets together into single multi-band file for improved storage and analysis.
 
-    Will perform preliminary check for sufficient disk space.
+    LZW (predictor = 2) compression applied to final output.
 
     Parameters
     ----------
-    inRGB : str
-        File path for RGB orthomosaic.
-    inNIR : str
-        File path for NIR orthomosaic.
-    inDEM : str
-        File path for DEM orthomosaic.
-    inDSM : str
-        File path for DSM orthomosaic.
-    outPath : str
-        File path for output file.
+    inRGB : File
+        File path to RGB raster dataset
+    inNIR : File
+        File path to NIR raster dataset
+    inDEM : File
+        File path to Digital Elevation Model raster dataset
+    inDSM : File
+        File path to Digital Surface Model raster dataset
+    inOther : dict
+        Dictionary containing file path to additional raster dataset, and str of file name.
+    outPath : file Path
+        Output file path.
+    bandNames : list
+        List of all bandnames from all input datasets.
     '''
-    # print(outPath)
-    # print(inOther)
+
     disk = os.path.split(outPath)[0]
     total, used, free = shutil.disk_usage(disk)
 

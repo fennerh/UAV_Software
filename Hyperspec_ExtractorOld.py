@@ -66,26 +66,23 @@ def overlaps_flightline(flightline, shapefiles):
 
 def extract_hyperspec(datafile, shapefiles,samples):
     '''
-    1) Isolate polygons which cover the same area as datafile.
-    
-    2)Sample means of individual datafile layers/bands from each overlapping polygon.
-    
-    Utilises rasterio window read to minimise memory usage.
+    Extract data from hyperspectral datasets using polygons to define target Areas of Interest.
+
+    Sub-sample these AOIs by defined statistics.
 
     Parameters
     ----------
-    datafile : rasterio Datafile
-        Any datafile that can be read by rasterio.
+    datafile : file
+        Hyperspectral data file.
     shapefiles : GeoJSON
-        GeoJSON file of AOI polygons, CRS = 4326.
-    polygonIds : list
-        List of unique ID values to filter shapefiles by.
+        GeoJSON file of AOI polygons.
+    samples : List
+        List of statistical samples to be applied.
 
     Returns
     -------
-    df : pandas DataFrame
-        Mean of each band for each AOI.
-
+    df : Pandas DataFrame
+        Dataframe of extracted statictics.
     '''
     plots = overlaps_flightline(datafile, shapefiles)
     custom_header = ''

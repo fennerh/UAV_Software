@@ -13,7 +13,7 @@ import shutil
 
 class SonyMaster():
     def __init__(self):
-        print('I am the Master')
+        print('Lets begin...')
 
     def find_file(self, path, extention):
         '''

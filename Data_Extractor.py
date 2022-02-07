@@ -33,6 +33,22 @@ def overlaps_flightline(flightline, shapefiles):
     '''
     
     def intersect_area(lilBox, bigBox):
+        '''
+        Calculate area of intersection between lilBox and bigBox.
+
+        Parameters
+        ----------
+        lilBox : geopandas polygon
+            Polygon who's percentage area covered you are interested in.
+        bigBox : geopandas polygon
+            Polygon who's coverage you are interested in.
+
+        Returns
+        -------
+        area_covered : int
+            Rounded percentage area covered, scale 0-100.
+
+        '''
         
         area_covered = (lilBox.intersection(bigBox).area/lilBox.area)*100
         return round(area_covered)
@@ -68,6 +84,25 @@ def overlaps_flightline(flightline, shapefiles):
     return df
 
 def extract_pixels(inPlot,transform,outFile,bandnames):
+    '''
+    Extract all individual pixel values from each band for AOI, and save to CSV along with X,Y coordinates.
+
+    Parameters
+    ----------
+    inPlot : Numpy Array
+        Masked numpy array of AOI.
+    transform : affineTransformation
+        Affine transformation of masked numpy array to georeferenced source raster
+    outFile : Path
+        Folder path to where outputs are saved.
+    bandnames : List
+        List of bandnames for each band in source raster.
+
+    Returns
+    -------
+    None.
+    
+    '''
     print(outFile)
     a =inPlot
     tform = transform
