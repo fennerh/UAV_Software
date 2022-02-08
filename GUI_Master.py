@@ -43,13 +43,13 @@ import tkinter as tk
 import tifffile as tiff
 import fiona
 import geopandas
-import cv2
 import traceback
 import xlsxwriter
 import threading
 import ctypes
 import rasterio
 import gc
+import openpyxl
 
 from random import randint
 from rasterio.mask import mask
@@ -65,7 +65,7 @@ from tkinter import PhotoImage
 from tkinter.ttk import Style
 from ttkwidgets.autocomplete import AutocompleteCombobox
 from queue import Queue
-from SonyImage_master import SonyMaster
+from SonyImage_master import SonyImage_Master
 from PlotShapfile_Extractor import shapefile_gen
 from Data_Extractor import hyperspec_master
 from mergingSony import orthoMerge
@@ -312,7 +312,7 @@ class ImageCalibrator(ttk.Frame):
         try:
             variables={'infolder':self.rawfolder.get(),'outfolder':self.outfolder.get(),'t5file':self.t5file.get(),'vigdest':self.vigfolder.get(),'camera':self.cam.get(),'average':self.average.get()}
             gc.collect()
-            thread_1 = threading.Thread(target=SonyMaster().SonyImage_Master(variables))
+            thread_1 = threading.Thread(target=SonyImage_Master(variables))
             thread_1.setDaemon(True)
             thread_1.start()
             
@@ -499,7 +499,7 @@ class batchcalibrator(ttk.Frame):
         for batch in self.batch:
             print(batch)
             gc.collect()
-            thread_1 = threading.Thread(target=SonyMaster().SonyImage_Master(batch))
+            thread_1 = threading.Thread(target=SonyImage_Master(batch))
             thread_1.setDaemon(True)
             thread_1.start()
             

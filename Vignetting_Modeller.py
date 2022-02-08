@@ -46,7 +46,7 @@ def createCircularMask(h, w, center=None, radius=None):
 
 def createRingMask(h, w, center=None, InnerRadius=None, RingDiam=None):
     '''
-    Generate rign mask of user defined size around the centre of an image.
+    Generate ring mask of user defined size around the centre of an image.
 
     Parameters
     ----------
@@ -180,11 +180,11 @@ def get_aperture(image):
             top, bottom=fn.split('/')
             fnumber=(int(top)/int(bottom))
             fnumber=np.round(fnumber,2)
+            return (fnumber)
             
         except ValueError:
             fnumber=int(fn)
-            
-    return (fnumber)
+            return (fnumber)
 
 def get_ISO(image):
     '''
@@ -277,9 +277,9 @@ def vigmodeller(infolder,outfolder,camera):
     
     Key steps are:
         1.Average all images
-        2.Generate ring masks and calcualte median of each suquential ring
-        3.Calculate 2nd degree polynomial on medians vs. distande from image centre
-        4.Generate vigentting model by applying polynomial to each mask ring.
+        2.Generate ring masks and calculate median of each sequential ring
+        3.Calculate 2nd degree polynomial on medians vs. distance from image centre
+        4.Generate vignetting model by applying polynomial to each mask ring.
     
 
     Parameters
@@ -287,7 +287,7 @@ def vigmodeller(infolder,outfolder,camera):
     infolder : str
         Folder path of input images.
     outfolder : str
-        Folder path to save vingetting models.
+        Folder path to save vignetting models.
     camera : str
         String denotion of which camera is being processed, RGB or NIR.
 
@@ -305,13 +305,12 @@ def vigmodeller(infolder,outfolder,camera):
             vig=np.empty([4024,6024])
             avrge=0    
             for im in glob.glob('*.tiff'):
-                fnumber=get_aperture(im)        
-                if fnumber == x:
+                if get_aperture(im) == x:
                     with tiff.TiffFile(im)as tif:     
-                        nir=tif.asarray()               
-                        nir=nir[:,:,2]/(get_ISO(im)/100)
-                        vig=vig+nir
-                        avrge=avrge+1
+                            nir=tif.asarray()               
+                            nir=nir[:,:,2]/(get_ISO(im)/100)
+                            vig=vig+nir
+                            avrge=avrge+1
             vig=vig[:,:]/avrge    
             biggest=maxDiam(4024,6024,25)
             median=[]
@@ -331,7 +330,7 @@ def vigmodeller(infolder,outfolder,camera):
                 vigmodel[test]=(cf.max()/cf[int((rad/25)-1)])
                 rad=rad-25
             vigmodel=vigmodel.astype(np.float16)
-        if camera=='RGB':
+        elif camera=='RGB':
             vigr=np.empty([4024,6024])
             vigg=np.empty([4024,6024])
             vigb=np.empty([4024,6024])
@@ -388,3 +387,4 @@ def vigmodeller(infolder,outfolder,camera):
         
         tiff.imsave(outfolder+str(x)+'_'+camera+'_vigModel.tif',vigmodel)
     return
+    
